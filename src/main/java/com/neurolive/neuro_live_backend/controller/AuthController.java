@@ -1,5 +1,7 @@
 package com.neurolive.neuro_live_backend.controller;
 
+import com.neurolive.neuro_live_backend.dto.LoginRequest;
+import com.neurolive.neuro_live_backend.dto.LoginResponse;
 import com.neurolive.neuro_live_backend.dto.RegisterRequest;
 import com.neurolive.neuro_live_backend.dto.RegisterResponse;
 import com.neurolive.neuro_live_backend.service.AuthService;
@@ -21,5 +23,10 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        return ResponseEntity.ok(authService.login(request));
     }
 }

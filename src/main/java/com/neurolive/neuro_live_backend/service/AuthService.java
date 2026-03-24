@@ -1,5 +1,7 @@
 package com.neurolive.neuro_live_backend.service;
 
+import com.neurolive.neuro_live_backend.dto.LoginRequest;
+import com.neurolive.neuro_live_backend.dto.LoginResponse;
 import com.neurolive.neuro_live_backend.dto.RegisterRequest;
 import com.neurolive.neuro_live_backend.dto.RegisterResponse;
 import com.neurolive.neuro_live_backend.entity.Role;
@@ -47,6 +49,27 @@ public class AuthService {
                 savedUser.getEmail(),
                 savedUser.getRole().getName().name(),
                 "User registered successfully"
+        );
+    }
+
+    public LoginResponse login(LoginRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+            .orElseThrow(() -> new RuntimeException("Invalid credentials"));
+
+        if (!Boolean.TRUE.equals(user.getActive())) {
+            throw new RuntimeException("User is inactive");
+        }
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        throw new RuntimeException("Invalid credentials");
+        }
+
+        return new LoginResponse(
+            user.getId(),
+            user.getName(),
+            user.getEmail(),
+            user.getRole().getName().name(),
+            "Login successful"
         );
     }
 }
