@@ -17,13 +17,16 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     public AuthService(UserRepository userRepository,
                     RoleRepository roleRepository,
-                    PasswordEncoder passwordEncoder) {
+                    PasswordEncoder passwordEncoder,
+                    JwtService jwtService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     public RegisterResponse register(RegisterRequest request) {
@@ -61,14 +64,17 @@ public class AuthService {
         }
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-        throw new RuntimeException("Invalid credentials");
+            throw new RuntimeException("Invalid credentials");
         }
+
+        String token = jwtService.generateToken(user);
 
         return new LoginResponse(
             user.getId(),
             user.getName(),
             user.getEmail(),
             user.getRole().getName().name(),
+            token,
             "Login successful"
         );
     }
