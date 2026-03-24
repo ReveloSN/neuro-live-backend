@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local CLI / build caches ###
+.azure-local/
+.m2-local/
