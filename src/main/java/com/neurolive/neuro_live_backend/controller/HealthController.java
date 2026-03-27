@@ -8,6 +8,16 @@ import java.util.Map;
 @RestController
 public class HealthController {
 
+    @GetMapping("/")
+    public Map<String, String> root() {
+        return Map.of(
+                "name", "NeuroLive Backend",
+                "status", "UP",
+                "message", "NeuroLive backend is running",
+                "health", "/health"
+        );
+    }
+
     @GetMapping("/health")
     public Map<String, String> health() {
         return Map.of(
