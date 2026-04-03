@@ -35,3 +35,6 @@ build/
 ### Local CLI / build caches ###
 .azure-local/
 .m2-local/
+
+### Local runtime logs ###
+*.log
