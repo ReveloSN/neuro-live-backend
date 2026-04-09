@@ -1,6 +1,7 @@
 package com.neurolive.neuro_live_backend.business.service;
 
 import com.neurolive.neuro_live_backend.business.patterns.CrisisMediator;
+import com.neurolive.neuro_live_backend.business.patterns.PatientStateUpdate;
 import com.neurolive.neuro_live_backend.domain.biometric.BaseLine;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricData;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricTelemetrySample;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @Transactional
@@ -50,6 +52,7 @@ public class TelemetryIngestionService {
         this.crisisOutcomePersistenceService = crisisOutcomePersistenceService;
     }
 
+    // Reutiliza el flujo de telemetria existente y ahora tambien reacciona a reconexiones y fallos del sensor.
     public TelemetryIngestionResult ingest(TelemetryPayload payload) {
         if (payload == null) {
             throw new IllegalArgumentException("Telemetry payload is required");
@@ -63,15 +66,18 @@ public class TelemetryIngestionService {
                 requireObservedAt(payload.observedAt()));
 
         Device device = validateLinkedDevice(patientId, payload.deviceMac());
+        boolean wasConnected = Boolean.TRUE.equals(device.getIsConnected());
+        Boolean previousSensorContact = device.getSensorContact();
 
         // Guarda la muestra biometrica antes de evaluar crisis
         LOGGER.debug(
-                "Persisting telemetry sample patientId={} deviceMac={} bpm={} spo2={} observedAt={}",
+                "Persisting telemetry sample patientId={} deviceMac={} bpm={} spo2={} observedAt={} sensorContact={}",
                 patientId,
                 device.getMacAddress(),
                 biometricData.bpm(),
                 biometricData.spo2(),
-                biometricData.timestamp()
+                biometricData.timestamp(),
+                payload.sensorContact()
         );
         BiometricTelemetrySample storedSample = biometricTelemetrySampleRepository.save(
                 BiometricTelemetrySample.from(patientId, device.getMacAddress(), biometricData));
@@ -83,7 +89,18 @@ public class TelemetryIngestionService {
                 storedSample.getObservedAt()
         );
 
-        Device updatedDevice = deviceService.registerTelemetry(device.getMacAddress(), biometricData.timestamp());
+        Device updatedDevice = deviceService.registerTelemetry(
+                device.getMacAddress(),
+                biometricData.timestamp(),
+                payload.sensorContact()
+        );
+        publishDeviceConnectivityUpdateIfNeeded(
+                patientId,
+                biometricData.timestamp(),
+                wasConnected,
+                previousSensorContact,
+                updatedDevice
+        );
         BaseLine baseLine = baseLineService.updateFromTelemetry(patientId, loadPatientTelemetry(patientId));
         var activationThreshold = activationThresholdService.resolveForPatient(patientId);
         RiskAssessmentService.AssessmentSnapshot assessmentSnapshot =
@@ -113,6 +130,29 @@ public class TelemetryIngestionService {
         }
 
         return new TelemetryIngestionResult(storedSample, updatedDevice, baseLine, crisisMediationResult);
+    }
+
+    // Notifica al cuidador solo cuando cambia la conectividad o el contacto del sensor.
+    private void publishDeviceConnectivityUpdateIfNeeded(Long patientId,
+                                                         LocalDateTime observedAt,
+                                                         boolean wasConnected,
+                                                         Boolean previousSensorContact,
+                                                         Device updatedDevice) {
+        boolean reconnected = !wasConnected && Boolean.TRUE.equals(updatedDevice.getIsConnected());
+        boolean sensorStatusChanged = !Objects.equals(previousSensorContact, updatedDevice.getSensorContact());
+
+        if (!reconnected && !sensorStatusChanged) {
+            return;
+        }
+
+        crisisMediator.publishUpdate(
+                PatientStateUpdate.caregiverDeviceStatus(
+                        patientId,
+                        observedAt,
+                        updatedDevice.getIsConnected(),
+                        updatedDevice.getSensorContact()
+                )
+        );
     }
 
     private Device validateLinkedDevice(Long patientId, String deviceMac) {

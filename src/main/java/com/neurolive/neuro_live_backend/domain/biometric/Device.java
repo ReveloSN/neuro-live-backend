@@ -46,17 +46,27 @@ public class Device {
     @Column(name = "last_connection")
     private LocalDateTime lastConnection;
 
+    @Column(name = "linked_at", updatable = false)
+    private LocalDateTime linkedAt;
+
+    @Column(name = "sensor_contact")
+    private Boolean sensorContact = true;
+
     @Column(name = "fall_back_config", length = 2048)
     private String fallBackConfig;
 
+    // Registra el dispositivo con el paciente y reinicia su estado de conectividad.
     public void register(Long patientId, String macAddress, String fallBackConfig) {
         this.patientId = validatePatientId(patientId);
         this.macAddress = normalizeMacAddress(macAddress);
         this.fallBackConfig = normalizeFallbackConfig(fallBackConfig);
         this.isConnected = false;
         this.lastConnection = null;
+        this.linkedAt = LocalDateTime.now();
+        this.sensorContact = true;
     }
 
+    // Marca el dispositivo como desconectado cuando supera el tiempo maximo sin muestras.
     public boolean detectDisconnect(Duration timeout, LocalDateTime referenceTime) {
         if (timeout == null || timeout.isZero() || timeout.isNegative()) {
             throw new IllegalArgumentException("Timeout must be greater than zero");
@@ -75,6 +85,7 @@ public class Device {
         return true;
     }
 
+    // Construye el comando que despues se publica al actuador vinculado.
     public DeviceCommand sendCommand(String command, LocalDateTime dispatchedAt) {
         if (id == null) {
             throw new IllegalStateException("Device must be persisted before sending commands");
@@ -99,7 +110,22 @@ public class Device {
         );
     }
 
+    // Actualiza solo la conectividad cuando el cambio no viene con detalles del sensor.
     public void updateStatus(boolean connected, LocalDateTime statusTime) {
+        applyStatus(connected, null, statusTime);
+    }
+
+    // Registra una nueva muestra y conserva el ultimo estado de contacto del sensor si se informa.
+    public void recordTelemetry(LocalDateTime statusTime, Boolean sensorContact) {
+        applyStatus(true, sensorContact, statusTime);
+    }
+
+    // Expone si el sensor reporta falta de contacto sin asumir desconexion total del dispositivo.
+    public boolean hasSensorContactIssue() {
+        return Boolean.FALSE.equals(sensorContact);
+    }
+
+    private void applyStatus(boolean connected, Boolean sensorContact, LocalDateTime statusTime) {
         if (statusTime == null) {
             throw new IllegalArgumentException("Status time is required");
         }
@@ -107,6 +133,9 @@ public class Device {
         isConnected = connected;
         if (connected) {
             lastConnection = statusTime;
+        }
+        if (sensorContact != null) {
+            this.sensorContact = sensorContact;
         }
     }
 

@@ -11,9 +11,12 @@ public record PatientStateMessageDTO(
         boolean interventionPrepared,
         LocalDateTime observedAt,
         Boolean deviceConnected,
-        boolean disconnectAlert
+        Boolean sensorContact,
+        boolean disconnectAlert,
+        boolean sensorContactAlert
 ) {
 
+    // Traduce el evento interno a un payload compacto y estable para el dashboard.
     public static PatientStateMessageDTO from(PatientStateUpdate update) {
         String emotionalState = update.emotionalState() == null
                 ? null
@@ -26,7 +29,9 @@ public record PatientStateMessageDTO(
                 update.interventionPrepared(),
                 update.observedAt(),
                 update.deviceConnected(),
-                update.isDisconnectAlert()
+                update.sensorContact(),
+                update.isDisconnectAlert(),
+                update.isSensorContactAlert()
         );
     }
 }

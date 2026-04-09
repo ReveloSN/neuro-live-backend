@@ -10,6 +10,16 @@ public record TelemetryPayload(
         String deviceMac,
         Float bpm,
         Float spo2,
-        LocalDateTime observedAt
+        LocalDateTime observedAt,
+        Boolean sensorContact
 ) {
+
+    // Mantiene compatibilidad con payloads existentes que no reportan contacto del sensor.
+    public TelemetryPayload(Long patientId,
+                            String deviceMac,
+                            Float bpm,
+                            Float spo2,
+                            LocalDateTime observedAt) {
+        this(patientId, deviceMac, bpm, spo2, observedAt, null);
+    }
 }

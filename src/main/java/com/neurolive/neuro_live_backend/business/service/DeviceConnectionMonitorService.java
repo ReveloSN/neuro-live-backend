@@ -36,27 +36,50 @@ public class DeviceConnectionMonitorService {
         scanForDisconnects(LocalDateTime.now());
     }
 
+    // Ejecuta la deteccion periodica usando un timeout efectivo que combina timeout y grace period.
     public List<Device> scanForDisconnects(LocalDateTime referenceTime) {
         if (referenceTime == null) {
             throw new IllegalArgumentException("Reference time is required");
         }
 
-        long timeoutSeconds = validateTimeoutSeconds(telemetryMonitoringProperties.getDisconnectTimeoutSeconds());
+        long timeoutSeconds = resolveDisconnectTimeoutSeconds();
         // Marca el dispositivo como desconectado al superar el tiempo limite
         List<Device> disconnectedDevices = deviceService.detectDisconnect(timeoutSeconds, referenceTime);
 
         // Evita duplicar alertas de desconexion
         disconnectedDevices.forEach(device -> crisisMediator.publishUpdate(
-                PatientStateUpdate.caregiverDisconnectAlert(device.getPatientId(), referenceTime)
+                PatientStateUpdate.caregiverDeviceStatus(
+                        device.getPatientId(),
+                        referenceTime,
+                        Boolean.FALSE,
+                        device.getSensorContact()
+                )
         ));
 
         return disconnectedDevices;
     }
 
-    private long validateTimeoutSeconds(long timeoutSeconds) {
-        if (timeoutSeconds <= 0) {
-            throw new IllegalArgumentException("Disconnect timeout must be greater than zero");
+    // Permite suavizar falsas alarmas usando el mayor valor entre timeout fijo e intervalo esperado por gracia.
+    private long resolveDisconnectTimeoutSeconds() {
+        long timeoutSeconds = validatePositiveValue(
+                telemetryMonitoringProperties.getDisconnectTimeoutSeconds(),
+                "Disconnect timeout"
+        );
+        long expectedIntervalSeconds = validatePositiveValue(
+                telemetryMonitoringProperties.getExpectedTelemetryIntervalSeconds(),
+                "Expected telemetry interval"
+        );
+        long gracePeriods = validatePositiveValue(
+                telemetryMonitoringProperties.getDisconnectGracePeriods(),
+                "Disconnect grace periods"
+        );
+        return Math.max(timeoutSeconds, Math.multiplyExact(expectedIntervalSeconds, gracePeriods));
+    }
+
+    private long validatePositiveValue(long value, String fieldName) {
+        if (value <= 0) {
+            throw new IllegalArgumentException(fieldName + " must be greater than zero");
         }
-        return timeoutSeconds;
+        return value;
     }
 }

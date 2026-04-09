@@ -71,6 +71,18 @@ public class ClinicalAccessService {
         return patient;
     }
 
+    // Centraliza quien puede vincular o consultar dispositivos de un paciente sin duplicar reglas en controllers.
+    public User requireDeviceManagementAccess(String requesterEmail, Long patientId) {
+        User requester = resolveCurrentUser(requesterEmail);
+        Patient patient = requirePatient(patientId);
+
+        return switch (requester.getRole()) {
+            case PATIENT -> requireSelfAccess(requester, patient.getId());
+            case CAREGIVER, DOCTOR -> requireLinkedClinicalAccess(requester, patient.getId());
+            default -> throw new UnauthorizedAccessException("User is not allowed to manage devices for the requested patient");
+        };
+    }
+
     private User requireSelfAccess(User requester, Long patientId) {
         if (!requester.getId().equals(patientId)) {
             throw new UnauthorizedAccessException("User can only access their own clinical data");

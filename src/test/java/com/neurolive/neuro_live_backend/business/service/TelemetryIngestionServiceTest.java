@@ -78,7 +78,7 @@ class TelemetryIngestionServiceTest {
 
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
-        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt())).thenReturn(device);
+        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
         when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
@@ -105,7 +105,7 @@ class TelemetryIngestionServiceTest {
 
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
-        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt())).thenReturn(device);
+        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
         when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
@@ -118,7 +118,7 @@ class TelemetryIngestionServiceTest {
 
         telemetryIngestionService.ingest(payload);
 
-        verify(deviceService).registerTelemetry(payload.deviceMac(), payload.observedAt());
+        verify(deviceService).registerTelemetry(payload.deviceMac(), payload.observedAt(), null);
     }
 
     @Test
@@ -131,7 +131,7 @@ class TelemetryIngestionServiceTest {
 
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
-        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt())).thenReturn(device);
+        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
         when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(activationThreshold);
@@ -162,7 +162,7 @@ class TelemetryIngestionServiceTest {
 
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
-        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt())).thenReturn(device);
+        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
         when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
@@ -174,6 +174,71 @@ class TelemetryIngestionServiceTest {
 
         assertEquals(storedSample, result.storedSample());
         assertNull(result.crisisMediationResult());
+        verify(crisisMediator, never()).mediate(any());
+    }
+
+    @Test
+    void shouldNotifyCaregiverWhenSensorContactIsLost() {
+        TelemetryPayload payload = new TelemetryPayload(
+                840L,
+                "AA:BB:CC:DD:EE:84",
+                84.0f,
+                98.0f,
+                LocalDateTime.of(2026, 4, 2, 10, 16),
+                Boolean.FALSE
+        );
+        Device device = buildDevice(840L, payload.deviceMac());
+        Device updatedDevice = buildDevice(840L, payload.deviceMac());
+        updatedDevice.recordTelemetry(payload.observedAt(), Boolean.FALSE);
+        BaseLine baseLine = new BaseLine(840L);
+        BiometricTelemetrySample storedSample = BiometricTelemetrySample.from(payload.patientId(), payload.deviceMac(), toDomain(payload));
+
+        when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
+        when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
+        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), Boolean.FALSE)).thenReturn(updatedDevice);
+        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
+        when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
+        when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
+        when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
+                new RiskAssessmentService.AssessmentSnapshot(null, null, null, null, StateEnum.NORMAL, "stable", "stable")
+        );
+
+        telemetryIngestionService.ingest(payload);
+
+        ArgumentCaptor<PatientStateUpdate> updateCaptor = ArgumentCaptor.forClass(PatientStateUpdate.class);
+        verify(crisisMediator).publishUpdate(updateCaptor.capture());
+        assertTrue(updateCaptor.getValue().isSensorContactAlert());
+        assertEquals(Boolean.FALSE, updateCaptor.getValue().sensorContact());
+        verify(crisisMediator, never()).mediate(any());
+    }
+
+    @Test
+    void shouldNotifyCaregiverWhenTelemetryReconnectsDevice() {
+        TelemetryPayload payload = buildPayload(841L, "AA:BB:CC:DD:EE:85", 84.0f, 98.0f, LocalDateTime.of(2026, 4, 2, 10, 17));
+        Device device = buildDevice(841L, payload.deviceMac());
+        device.updateStatus(false, LocalDateTime.of(2026, 4, 2, 10, 10));
+        Device updatedDevice = buildDevice(841L, payload.deviceMac());
+        updatedDevice.recordTelemetry(payload.observedAt(), Boolean.TRUE);
+        BaseLine baseLine = new BaseLine(841L);
+        BiometricTelemetrySample storedSample = BiometricTelemetrySample.from(payload.patientId(), payload.deviceMac(), toDomain(payload));
+
+        when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
+        when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
+        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(updatedDevice);
+        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
+        when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
+        when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
+        when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
+                new RiskAssessmentService.AssessmentSnapshot(null, null, null, null, StateEnum.NORMAL, "stable", "stable")
+        );
+
+        telemetryIngestionService.ingest(payload);
+
+        ArgumentCaptor<PatientStateUpdate> updateCaptor = ArgumentCaptor.forClass(PatientStateUpdate.class);
+        verify(crisisMediator).publishUpdate(updateCaptor.capture());
+        assertEquals(Boolean.TRUE, updateCaptor.getValue().deviceConnected());
+        assertEquals(Boolean.TRUE, updateCaptor.getValue().sensorContact());
+        assertTrue(updateCaptor.getValue().shouldNotifyCaregiver());
         verify(crisisMediator, never()).mediate(any());
     }
 
@@ -200,7 +265,7 @@ class TelemetryIngestionServiceTest {
 
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
-        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt())).thenReturn(device);
+        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
         when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
@@ -252,7 +317,7 @@ class TelemetryIngestionServiceTest {
 
         when(localDeviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(sampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
-        when(localDeviceService.registerTelemetry(payload.deviceMac(), payload.observedAt())).thenReturn(device);
+        when(localDeviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
         when(sampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
         when(localBaseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(localThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);

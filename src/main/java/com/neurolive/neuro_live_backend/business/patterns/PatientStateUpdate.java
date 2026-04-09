@@ -12,7 +12,8 @@ public record PatientStateUpdate(
         boolean interventionPrepared,
         LocalDateTime observedAt,
         PatientStateAudience audience,
-        Boolean deviceConnected
+        Boolean deviceConnected,
+        Boolean sensorContact
 ) {
 
     public PatientStateUpdate {
@@ -28,9 +29,9 @@ public record PatientStateUpdate(
         if (audience == null) {
             throw new IllegalArgumentException("Patient state audience is required");
         }
-        if (emotionalState == null && deviceConnected == null) {
+        if (emotionalState == null && deviceConnected == null && sensorContact == null) {
             throw new IllegalArgumentException(
-                    "Patient state update must include an emotional state or a device connection status");
+                    "Patient state update must include an emotional state or a device connectivity detail");
         }
     }
 
@@ -46,11 +47,21 @@ public record PatientStateUpdate(
                 interventionPrepared,
                 observedAt,
                 PatientStateAudience.ALL,
+                null,
                 null
         );
     }
 
+    // Conserva el factory existente para los lugares que solo conocen la semantica de desconexion.
     public static PatientStateUpdate caregiverDisconnectAlert(Long patientId, LocalDateTime observedAt) {
+        return caregiverDeviceStatus(patientId, observedAt, Boolean.FALSE, null);
+    }
+
+    // Reutiliza el mismo canal del dashboard para caidas, advertencias del sensor y recuperacion del dispositivo.
+    public static PatientStateUpdate caregiverDeviceStatus(Long patientId,
+                                                           LocalDateTime observedAt,
+                                                           Boolean deviceConnected,
+                                                           Boolean sensorContact) {
         return new PatientStateUpdate(
                 patientId,
                 null,
@@ -58,7 +69,8 @@ public record PatientStateUpdate(
                 false,
                 observedAt,
                 PatientStateAudience.CAREGIVER_ONLY,
-                Boolean.FALSE
+                deviceConnected,
+                sensorContact
         );
     }
 
@@ -72,5 +84,9 @@ public record PatientStateUpdate(
 
     public boolean isDisconnectAlert() {
         return Boolean.FALSE.equals(deviceConnected);
+    }
+
+    public boolean isSensorContactAlert() {
+        return Boolean.TRUE.equals(deviceConnected) && Boolean.FALSE.equals(sensorContact);
     }
 }

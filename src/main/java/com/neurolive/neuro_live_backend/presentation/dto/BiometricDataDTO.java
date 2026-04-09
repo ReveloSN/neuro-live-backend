@@ -12,10 +12,12 @@ public record BiometricDataDTO(
         @NotBlank String deviceMac,
         @NotNull @Positive Float bpm,
         @NotNull @Positive Float spo2,
-        @NotNull LocalDateTime observedAt
+        @NotNull LocalDateTime observedAt,
+        Boolean sensorContact
 ) {
 
+    // Convierte el DTO REST al mismo payload que usa la ingesta MQTT para no duplicar validaciones.
     public TelemetryPayload toPayload() {
-        return new TelemetryPayload(patientId, deviceMac, bpm, spo2, observedAt);
+        return new TelemetryPayload(patientId, deviceMac, bpm, spo2, observedAt, sensorContact);
     }
 }

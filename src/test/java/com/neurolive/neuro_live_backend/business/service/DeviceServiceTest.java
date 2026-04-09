@@ -43,6 +43,12 @@ class DeviceServiceTest {
     @Mock
     private DeviceCommandPublisher deviceCommandPublisher;
 
+    @Mock
+    private ClinicalAccessService clinicalAccessService;
+
+    @Mock
+    private AuditLogService auditLogService;
+
     @InjectMocks
     private DeviceService deviceService;
 
@@ -50,7 +56,7 @@ class DeviceServiceTest {
     void registerShouldSaveDeviceForPatient() {
         Patient patient = buildPatient(3L);
         when(userRepository.findById(3L)).thenReturn(Optional.of(patient));
-        when(deviceRepository.existsByMacAddress("AA:BB:CC:DD:EE:FF")).thenReturn(false);
+        when(deviceRepository.findByMacAddress("AA:BB:CC:DD:EE:FF")).thenReturn(Optional.empty());
         when(deviceRepository.save(any(Device.class))).thenAnswer(invocation -> {
             Device device = invocation.getArgument(0);
             setId(device, 20L);
@@ -64,6 +70,7 @@ class DeviceServiceTest {
         assertEquals(3L, registeredDevice.getPatientId());
         assertEquals("calm-mode", registeredDevice.getFallBackConfig());
         assertEquals(Boolean.FALSE, registeredDevice.getIsConnected());
+        assertEquals(Boolean.TRUE, registeredDevice.getSensorContact());
     }
 
     @Test
@@ -81,6 +88,80 @@ class DeviceServiceTest {
     }
 
     @Test
+    void linkDeviceShouldAuthorizeRequesterAndRecordAudit() {
+        Patient patient = buildPatient(5L);
+        when(clinicalAccessService.requireDeviceManagementAccess("patient5@neurolive.test", 5L)).thenReturn(patient);
+        when(userRepository.findById(5L)).thenReturn(Optional.of(patient));
+        when(deviceRepository.findByMacAddress("AA:BB:CC:DD:EE:05")).thenReturn(Optional.empty());
+        when(deviceRepository.save(any(Device.class))).thenAnswer(invocation -> {
+            Device device = invocation.getArgument(0);
+            setId(device, 205L);
+            return device;
+        });
+
+        Device linkedDevice = deviceService.linkDevice(
+                "patient5@neurolive.test",
+                5L,
+                "aa:bb:cc:dd:ee:05",
+                "calm-mode",
+                "127.0.0.1"
+        );
+
+        assertEquals(205L, linkedDevice.getId());
+        assertEquals("AA:BB:CC:DD:EE:05", linkedDevice.getMacAddress());
+        verify(auditLogService).record(5L, "LINK_DEVICE", 5L, "127.0.0.1");
+    }
+
+    @Test
+    void linkDeviceShouldRejectMacAlreadyLinkedToSamePatient() {
+        Patient patient = buildPatient(6L);
+        Device existingDevice = new Device();
+        existingDevice.register(6L, "AA:BB:CC:DD:EE:06", null);
+
+        when(clinicalAccessService.requireDeviceManagementAccess("patient6@neurolive.test", 6L)).thenReturn(patient);
+        when(userRepository.findById(6L)).thenReturn(Optional.of(patient));
+        when(deviceRepository.findByMacAddress("AA:BB:CC:DD:EE:06")).thenReturn(Optional.of(existingDevice));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> deviceService.linkDevice(
+                        "patient6@neurolive.test",
+                        6L,
+                        "AA:BB:CC:DD:EE:06",
+                        null,
+                        "127.0.0.1"
+                )
+        );
+
+        assertEquals("Device is already linked to this patient", exception.getMessage());
+        verify(deviceRepository, never()).save(any(Device.class));
+    }
+
+    @Test
+    void linkDeviceShouldRejectMacAlreadyLinkedToAnotherPatient() {
+        Patient patient = buildPatient(7L);
+        Device existingDevice = new Device();
+        existingDevice.register(70L, "AA:BB:CC:DD:EE:07", null);
+
+        when(clinicalAccessService.requireDeviceManagementAccess("patient7@neurolive.test", 7L)).thenReturn(patient);
+        when(userRepository.findById(7L)).thenReturn(Optional.of(patient));
+        when(deviceRepository.findByMacAddress("AA:BB:CC:DD:EE:07")).thenReturn(Optional.of(existingDevice));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> deviceService.linkDevice(
+                        "patient7@neurolive.test",
+                        7L,
+                        "AA:BB:CC:DD:EE:07",
+                        null,
+                        "127.0.0.1"
+                )
+        );
+
+        assertEquals("Device is already linked to another patient", exception.getMessage());
+    }
+
+    @Test
     void registerTelemetryShouldMarkDeviceAsConnected() {
         Device device = new Device();
         device.register(6L, "AA:BB:CC:DD:EE:01", null);
@@ -91,6 +172,21 @@ class DeviceServiceTest {
         Device updatedDevice = deviceService.registerTelemetry("aa-bb-cc-dd-ee-01", telemetryTime);
 
         assertTrue(updatedDevice.getIsConnected());
+        assertEquals(telemetryTime, updatedDevice.getLastConnection());
+    }
+
+    @Test
+    void registerTelemetryShouldStoreSensorContactWhenReported() {
+        Device device = new Device();
+        device.register(61L, "AA:BB:CC:DD:EE:61", null);
+        when(deviceRepository.findByMacAddress("AA:BB:CC:DD:EE:61")).thenReturn(Optional.of(device));
+        when(deviceRepository.save(device)).thenReturn(device);
+        LocalDateTime telemetryTime = LocalDateTime.of(2026, 4, 9, 18, 0);
+
+        Device updatedDevice = deviceService.registerTelemetry("AA:BB:CC:DD:EE:61", telemetryTime, Boolean.FALSE);
+
+        assertTrue(updatedDevice.getIsConnected());
+        assertEquals(Boolean.FALSE, updatedDevice.getSensorContact());
         assertEquals(telemetryTime, updatedDevice.getLastConnection());
     }
 

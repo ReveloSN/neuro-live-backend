@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -27,25 +28,52 @@ public class DeviceService {
     private final DeviceRepository deviceRepository;
     private final UserRepository userRepository;
     private final DeviceCommandPublisher deviceCommandPublisher;
+    private final ClinicalAccessService clinicalAccessService;
+    private final AuditLogService auditLogService;
 
     public DeviceService(DeviceRepository deviceRepository,
-                        UserRepository userRepository,
-                        DeviceCommandPublisher deviceCommandPublisher) {
+                         UserRepository userRepository,
+                         DeviceCommandPublisher deviceCommandPublisher,
+                         ClinicalAccessService clinicalAccessService,
+                         AuditLogService auditLogService) {
         this.deviceRepository = deviceRepository;
         this.userRepository = userRepository;
         this.deviceCommandPublisher = deviceCommandPublisher;
+        this.clinicalAccessService = clinicalAccessService;
+        this.auditLogService = auditLogService;
     }
 
+    // Mantiene el contrato legado de registro mientras delega a la misma regla de vinculo unico.
     public Device register(Long patientId, String macAddress, String fallBackConfig) {
+        return registerInternal(patientId, macAddress, fallBackConfig);
+    }
+
+    // Expone el flujo autorizado de RF05 para asociar un ESP32 a un paciente concreto.
+    public Device linkDevice(String requesterEmail,
+                             Long patientId,
+                             String macAddress,
+                             String fallBackConfig,
+                             String ipOrigin) {
+        User requester = clinicalAccessService.requireDeviceManagementAccess(requesterEmail, patientId);
+        Device device = registerInternal(patientId, macAddress, fallBackConfig);
+        auditLogService.record(requester.getId(), "LINK_DEVICE", patientId, normalizeIp(ipOrigin));
+        return device;
+    }
+
+    private Device registerInternal(Long patientId, String macAddress, String fallBackConfig) {
         Patient patient = validatePatientReference(patientId);
+        String normalizedMacAddress = normalizeMacAddress(macAddress);
+        Optional<Device> existingDevice = deviceRepository.findByMacAddress(normalizedMacAddress);
 
-        Device device = new Device();
-        device.register(patient.getId(), macAddress, fallBackConfig);
-
-        if (deviceRepository.existsByMacAddress(device.getMacAddress())) {
-            throw new IllegalArgumentException("MAC address is already registered");
+        if (existingDevice.isPresent()) {
+            if (patient.getId().equals(existingDevice.get().getPatientId())) {
+                throw new IllegalStateException("Device is already linked to this patient");
+            }
+            throw new IllegalStateException("Device is already linked to another patient");
         }
 
+        Device device = new Device();
+        device.register(patient.getId(), normalizedMacAddress, fallBackConfig);
         return deviceRepository.save(device);
     }
 
@@ -68,12 +96,19 @@ public class DeviceService {
         return deviceRepository.save(device);
     }
 
+    // Mantiene compatibilidad con el flujo anterior cuando la telemetria no reporta sensorContact.
     public Device registerTelemetry(String macAddress, LocalDateTime telemetryTime) {
+        return registerTelemetry(macAddress, telemetryTime, null);
+    }
+
+    // Marca presencia de telemetria y conserva si el sensor reporto contacto valido o no.
+    public Device registerTelemetry(String macAddress, LocalDateTime telemetryTime, Boolean sensorContact) {
         Device device = findByMacAddress(macAddress);
-        device.updateStatus(true, telemetryTime);
+        device.recordTelemetry(telemetryTime, sensorContact);
         return deviceRepository.save(device);
     }
 
+    // Revisa los dispositivos conectados y devuelve solo los que realmente cruzaron el timeout.
     public List<Device> detectDisconnect(Long timeoutSeconds, LocalDateTime referenceTime) {
         if (timeoutSeconds == null || timeoutSeconds <= 0) {
             throw new IllegalArgumentException("Timeout must be greater than zero");
@@ -135,5 +170,9 @@ public class DeviceService {
         }
 
         return normalized;
+    }
+
+    private String normalizeIp(String ipOrigin) {
+        return ipOrigin == null || ipOrigin.isBlank() ? "unknown" : ipOrigin.trim();
     }
 }
