@@ -34,6 +34,15 @@ public class ActivationThreshold {
     @Column(name = "error_rate_max")
     private Float errorRateMax;
 
+    @Column(name = "patient_id")
+    private Long patientId;
+
+    @Column(name = "personal_user_id")
+    private Long personalUserId;
+
+    @Column(name = "defined_by_user_id")
+    private Long definedByUserId;
+
     @Column(nullable = false)
     private Boolean active = true;
 
@@ -55,12 +64,41 @@ public class ActivationThreshold {
         active = false;
     }
 
+    public ActivationThreshold assignToPatient(Long patientId, Long definedByUserId) {
+        this.patientId = validateIdentifier(patientId, "Patient");
+        this.personalUserId = null;
+        this.definedByUserId = validateIdentifier(definedByUserId, "Defining user");
+        return this;
+    }
+
+    public ActivationThreshold assignToPersonalUser(Long personalUserId, Long definedByUserId) {
+        this.personalUserId = validateIdentifier(personalUserId, "Personal user");
+        this.patientId = null;
+        this.definedByUserId = validateIdentifier(definedByUserId, "Defining user");
+        return this;
+    }
+
+    public boolean appliesToPatient(Long patientId) {
+        return this.patientId != null && this.patientId.equals(patientId);
+    }
+
+    public boolean appliesToPersonalUser(Long personalUserId) {
+        return this.personalUserId != null && this.personalUserId.equals(personalUserId);
+    }
+
     private Float validateMetric(Float value, String fieldName) {
         if (value == null) {
             return null;
         }
         if (!Float.isFinite(value) || value < 0) {
             throw new IllegalArgumentException(fieldName + " must be a finite non-negative value");
+        }
+        return value;
+    }
+
+    private Long validateIdentifier(Long value, String fieldName) {
+        if (value == null || value <= 0) {
+            throw new IllegalArgumentException(fieldName + " identifier must be positive");
         }
         return value;
     }

@@ -51,11 +51,26 @@ public class InterventionProtocol {
     @Column(name = "audio_track", length = 255)
     private String audioTrack;
 
+    @Column(name = "audio_volume")
+    private Integer audioVolume;
+
     @Column(name = "ui_reduction_enabled")
     private Boolean uiReductionEnabled;
 
+    @Column(name = "ui_theme", length = 80)
+    private String uiTheme;
+
+    @Column(name = "high_contrast_enabled")
+    private Boolean highContrastEnabled;
+
     @Column(name = "breathing_enabled")
     private Boolean breathingEnabled;
+
+    @Column(name = "breathing_rhythm")
+    private Integer breathingRhythm;
+
+    @Column(name = "breathing_cycles")
+    private Integer breathingCycles;
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "crisis_event_id", nullable = false, unique = true)
@@ -68,8 +83,13 @@ public class InterventionProtocol {
         this.lightColor = normalizeOptionalText(builder.lightColor);
         this.lightIntensity = builder.lightIntensity;
         this.audioTrack = normalizeOptionalText(builder.audioTrack);
+        this.audioVolume = builder.audioVolume;
         this.uiReductionEnabled = builder.uiReductionEnabled;
+        this.uiTheme = normalizeOptionalText(builder.uiTheme);
+        this.highContrastEnabled = builder.highContrastEnabled;
         this.breathingEnabled = builder.breathingEnabled;
+        this.breathingRhythm = builder.breathingRhythm;
+        this.breathingCycles = builder.breathingCycles;
         validateConfiguration();
     }
 
@@ -127,7 +147,7 @@ public class InterventionProtocol {
         if (crisisEvent == null) {
             throw new IllegalStateException("Intervention protocol must be attached to a crisis event");
         }
-        if (crisisEvent.getInterventionType() != type) {
+        if (!type.sameFamily(crisisEvent.getInterventionType())) {
             throw new IllegalStateException("Intervention protocol type must match the crisis event type");
         }
     }
@@ -143,7 +163,7 @@ public class InterventionProtocol {
     private void validateLightConfiguration() {
         boolean hasLightConfig = lightColor != null || lightIntensity != null;
 
-        if (type == TypeEnum.LIGHTING_CONTROL) {
+        if (type.isLight()) {
             if (lightColor == null || lightIntensity == null) {
                 throw new IllegalStateException("Lighting control requires light color and intensity");
             }
@@ -157,40 +177,43 @@ public class InterventionProtocol {
     }
 
     private void validateAudioConfiguration() {
-        if (type == TypeEnum.AUDITORY_REGULATION) {
+        if (type.isAudio()) {
             if (audioTrack == null) {
                 throw new IllegalStateException("Auditory regulation requires an audio track");
             }
+            validateAudioVolume(audioVolume);
             return;
         }
 
-        if (audioTrack != null) {
+        if (audioTrack != null || audioVolume != null) {
             throw new IllegalStateException("Audio configuration is only allowed for auditory regulation protocols");
         }
     }
 
     private void validateUiConfiguration() {
-        if (type == TypeEnum.UI_REDUCTION) {
+        if (type.isUi()) {
             if (!Boolean.TRUE.equals(uiReductionEnabled)) {
                 throw new IllegalStateException("UI reduction requires the UI flag to be enabled");
             }
             return;
         }
 
-        if (uiReductionEnabled != null) {
+        if (uiReductionEnabled != null || uiTheme != null || highContrastEnabled != null) {
             throw new IllegalStateException("UI configuration is only allowed for UI reduction protocols");
         }
     }
 
     private void validateBreathingConfiguration() {
-        if (type == TypeEnum.GUIDED_BREATHING) {
+        if (type.isBreathing()) {
             if (!Boolean.TRUE.equals(breathingEnabled)) {
                 throw new IllegalStateException("Guided breathing requires the breathing flag to be enabled");
             }
+            validatePositiveInteger(breathingRhythm, "Breathing rhythm");
+            validatePositiveInteger(breathingCycles, "Breathing cycles");
             return;
         }
 
-        if (breathingEnabled != null) {
+        if (breathingEnabled != null || breathingRhythm != null || breathingCycles != null) {
             throw new IllegalStateException("Breathing configuration is only allowed for guided breathing protocols");
         }
     }
@@ -199,7 +222,8 @@ public class InterventionProtocol {
         if (type == null) {
             throw new IllegalArgumentException("Intervention type is required");
         }
-        return type;
+        // Guarda el tipo de forma consistente para que el evento, el dashboard y el comando usen la misma referencia.
+        return type.canonical();
     }
 
     private int validateLightIntensity(Integer lightIntensity) {
@@ -209,6 +233,26 @@ public class InterventionProtocol {
             throw new IllegalArgumentException("Light intensity must be between 1 and 100");
         }
         return lightIntensity;
+    }
+
+    private Integer validateAudioVolume(Integer audioVolume) {
+        if (audioVolume == null) {
+            return null;
+        }
+        if (audioVolume < MIN_LIGHT_INTENSITY || audioVolume > MAX_LIGHT_INTENSITY) {
+            throw new IllegalArgumentException("Audio volume must be between 1 and 100");
+        }
+        return audioVolume;
+    }
+
+    private Integer validatePositiveInteger(Integer value, String fieldName) {
+        if (value == null) {
+            return null;
+        }
+        if (value <= 0) {
+            throw new IllegalArgumentException(fieldName + " must be greater than zero");
+        }
+        return value;
     }
 
     private String normalizeOptionalText(String value) {
@@ -228,8 +272,13 @@ public class InterventionProtocol {
         private String lightColor;
         private Integer lightIntensity;
         private String audioTrack;
+        private Integer audioVolume;
         private Boolean uiReductionEnabled;
+        private String uiTheme;
+        private Boolean highContrastEnabled;
         private Boolean breathingEnabled;
+        private Integer breathingRhythm;
+        private Integer breathingCycles;
 
         private Builder(TypeEnum type) {
             this.type = type;
@@ -256,13 +305,35 @@ public class InterventionProtocol {
             return this;
         }
 
+        public Builder audioTrack(String audioTrack, Integer audioVolume) {
+            this.audioTrack = audioTrack;
+            this.audioVolume = audioVolume;
+            return this;
+        }
+
         public Builder uiReductionEnabled() {
             this.uiReductionEnabled = true;
             return this;
         }
 
+        public Builder uiMode(String uiTheme, Boolean highContrastEnabled) {
+            // Define como debe verse la interfaz cuando se activa el modo calma en pantalla.
+            this.uiReductionEnabled = true;
+            this.uiTheme = uiTheme;
+            this.highContrastEnabled = highContrastEnabled;
+            return this;
+        }
+
         public Builder breathingEnabled() {
             this.breathingEnabled = true;
+            return this;
+        }
+
+        public Builder breathingPattern(Integer breathingRhythm, Integer breathingCycles) {
+            // Guarda el ritmo y los ciclos que luego puede consumir el frontend o el dispositivo guiado.
+            this.breathingEnabled = true;
+            this.breathingRhythm = breathingRhythm;
+            this.breathingCycles = breathingCycles;
             return this;
         }
 

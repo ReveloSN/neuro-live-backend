@@ -1,9 +1,8 @@
 package com.neurolive.neuro_live_backend.presentation.websocket;
 
 import com.neurolive.neuro_live_backend.business.patterns.PatientStateUpdate;
-import org.springframework.stereotype.Component;
 
-@Component
+@Deprecated
 public class NoOpPatientStateWebSocketBridge implements PatientStateWebSocketBridge {
 
     @Override

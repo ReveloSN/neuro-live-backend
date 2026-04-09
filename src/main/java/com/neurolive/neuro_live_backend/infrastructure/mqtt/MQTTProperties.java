@@ -1,9 +1,7 @@
 package com.neurolive.neuro_live_backend.infrastructure.mqtt;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
-@Component
 @ConfigurationProperties(prefix = "mqtt")
 public class MQTTProperties {
 

@@ -49,6 +49,24 @@ public class CrisisEvent {
     @Column(name = "intervention_type", length = 40)
     private TypeEnum interventionType;
 
+    @Column(name = "trigger_bpm")
+    private Float triggerBpm;
+
+    @Column(name = "trigger_spo2")
+    private Float triggerSpo2;
+
+    @Column(name = "typing_error_rate")
+    private Float typingErrorRate;
+
+    @Column(name = "typing_dwell_time")
+    private Float typingDwellTime;
+
+    @Column(name = "typing_flight_time")
+    private Float typingFlightTime;
+
+    @Column(name = "typing_error_count")
+    private Integer typingErrorCount;
+
     @OneToOne(mappedBy = "crisisEvent", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private InterventionProtocol interventionProtocol;
 
@@ -91,12 +109,13 @@ public class CrisisEvent {
         if (this.interventionProtocol != null) {
             throw new IllegalStateException("Intervention protocol is already attached to this crisis event");
         }
-        if (interventionType != null && interventionProtocol.getType() != interventionType) {
+        TypeEnum protocolType = interventionProtocol.getType().canonical();
+        if (interventionType != null && !interventionType.sameFamily(protocolType)) {
             throw new IllegalArgumentException("Intervention protocol type must match the crisis event type");
         }
 
         interventionProtocol.attachTo(this);
-        this.interventionType = interventionProtocol.getType();
+        this.interventionType = protocolType;
         this.interventionProtocol = interventionProtocol;
         validateLifecycle();
     }
@@ -121,6 +140,20 @@ public class CrisisEvent {
 
         this.samResponse = samResponse;
         validateLifecycle();
+    }
+
+    public void recordTriggerMetrics(Float triggerBpm,
+                                    Float triggerSpo2,
+                                    Float typingErrorRate,
+                                    Float typingDwellTime,
+                                    Float typingFlightTime,
+                                    Integer typingErrorCount) {
+        this.triggerBpm = validateOptionalMetric(triggerBpm, "Trigger BPM");
+        this.triggerSpo2 = validateOptionalMetric(triggerSpo2, "Trigger SpO2");
+        this.typingErrorRate = validateOptionalMetric(typingErrorRate, "Typing error rate");
+        this.typingDwellTime = validateOptionalMetric(typingDwellTime, "Typing dwell time");
+        this.typingFlightTime = validateOptionalMetric(typingFlightTime, "Typing flight time");
+        this.typingErrorCount = validateOptionalCount(typingErrorCount, "Typing error count");
     }
 
     public boolean isActive() {
@@ -172,7 +205,7 @@ public class CrisisEvent {
         if (interventionProtocol != null && !interventionProtocol.belongsTo(this)) {
             throw new IllegalStateException("Intervention protocol must belong to the same crisis event");
         }
-        if (interventionProtocol != null && interventionType != interventionProtocol.getType()) {
+        if (interventionProtocol != null && !interventionType.sameFamily(interventionProtocol.getType())) {
             throw new IllegalStateException("Intervention protocol type must match the crisis event type");
         }
         if (samResponse != null && interventionType == null) {
@@ -244,16 +277,36 @@ public class CrisisEvent {
         if (interventionType == null) {
             throw new IllegalArgumentException("Intervention type is required");
         }
-        return interventionType;
+        return interventionType.canonical();
     }
 
     private TypeEnum resolveInterventionType(TypeEnum interventionType) {
         TypeEnum validatedInterventionType = validateInterventionType(interventionType);
 
-        if (this.interventionType != null && this.interventionType != validatedInterventionType) {
+        if (this.interventionType != null && !this.interventionType.sameFamily(validatedInterventionType)) {
             throw new IllegalArgumentException("Final intervention type must match the active crisis intervention");
         }
 
         return validatedInterventionType;
+    }
+
+    private Float validateOptionalMetric(Float value, String fieldName) {
+        if (value == null) {
+            return null;
+        }
+        if (!Float.isFinite(value) || value < 0.0f) {
+            throw new IllegalArgumentException(fieldName + " must be a finite non-negative value");
+        }
+        return value;
+    }
+
+    private Integer validateOptionalCount(Integer value, String fieldName) {
+        if (value == null) {
+            return null;
+        }
+        if (value < 0) {
+            throw new IllegalArgumentException(fieldName + " must be non-negative");
+        }
+        return value;
     }
 }

@@ -1,5 +1,6 @@
 package com.neurolive.neuro_live_backend.presentation.controller;
 
+import com.neurolive.neuro_live_backend.data.exception.CrisisNotFoundException;
 import com.neurolive.neuro_live_backend.data.exception.DeviceNotLinkedException;
 import com.neurolive.neuro_live_backend.data.exception.UnauthorizedAccessException;
 import jakarta.persistence.EntityNotFoundException;
@@ -39,9 +40,19 @@ public class ApiExceptionHandler {
         return build(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
+    @ExceptionHandler(CrisisNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleCrisisNotFound(CrisisNotFoundException exception) {
+        return build(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
     @ExceptionHandler({UnauthorizedAccessException.class, DeviceNotLinkedException.class})
     public ResponseEntity<Map<String, String>> handleForbidden(RuntimeException exception) {
         return build(HttpStatus.FORBIDDEN, exception.getMessage());
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalState(IllegalStateException exception) {
+        return build(HttpStatus.CONFLICT, exception.getMessage());
     }
 
     private ResponseEntity<Map<String, String>> build(HttpStatus status, String message) {

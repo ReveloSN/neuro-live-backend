@@ -35,6 +35,9 @@ public class PersonalUser extends User {
         if (customThreshold == null) {
             throw new IllegalArgumentException("Custom threshold is required");
         }
+        if (getId() != null) {
+            customThreshold.assignToPersonalUser(getId(), getId());
+        }
         this.customThreshold = customThreshold;
     }
 

@@ -9,4 +9,10 @@ import java.util.Optional;
 public interface ActivationThresholdRepository extends JpaRepository<ActivationThreshold, Long> {
 
     Optional<ActivationThreshold> findFirstByActiveTrueOrderByCreatedAtDesc();
+
+    Optional<ActivationThreshold> findFirstByPatientIdAndActiveTrueOrderByCreatedAtDesc(Long patientId);
+
+    Optional<ActivationThreshold> findFirstByPersonalUserIdAndActiveTrueOrderByCreatedAtDesc(Long personalUserId);
+
+    Optional<ActivationThreshold> findFirstByPatientIdIsNullAndPersonalUserIdIsNullAndActiveTrueOrderByCreatedAtDesc();
 }
