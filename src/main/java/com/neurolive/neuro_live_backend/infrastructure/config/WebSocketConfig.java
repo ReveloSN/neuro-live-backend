@@ -14,9 +14,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final String[] allowedOrigins;
 
-    public WebSocketConfig(@Value("${websocket.allowed-origins:http://localhost:3000}") String allowedOrigins) {
+    public WebSocketConfig(@Value("${app.allowed-origins:http://localhost:3000,http://localhost:5173,https://neuro-live-frontend.vercel.app}") String allowedOrigins) {
         this.allowedOrigins = allowedOrigins == null
-                ? new String[]{"http://localhost:3000"}
+                ? new String[]{"http://localhost:3000", "http://localhost:5173", "https://neuro-live-frontend.vercel.app"}
                 : allowedOrigins.split(",");
     }
 

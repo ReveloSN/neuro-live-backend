@@ -17,12 +17,28 @@ Configura estas variables en `App Service > Settings > Environment variables`:
 - `SPRING_DATASOURCE_PASSWORD`
 - `JWT_SECRET`
 - `JWT_EXPIRATION`
+- `APP_ALLOWED_ORIGINS`
 - `PORT` opcional, si defines un comando de arranque personalizado
 
 Ejemplo de `SPRING_DATASOURCE_URL`:
 
 ```text
 jdbc:postgresql://<tu-servidor>.postgres.database.azure.com:5432/neurolive?sslmode=require
+```
+
+Ejemplo de `APP_ALLOWED_ORIGINS`:
+
+```text
+https://neuro-live-frontend.vercel.app,http://localhost:3000,http://localhost:5173
+```
+
+Tambien puedes configurarlo por Azure CLI:
+
+```powershell
+az webapp config appsettings set `
+  --resource-group rg-neurolive `
+  --name neurolive-backend `
+  --settings APP_ALLOWED_ORIGINS="https://neuro-live-frontend.vercel.app,http://localhost:3000,http://localhost:5173"
 ```
 
 ## Comandos de despliegue
