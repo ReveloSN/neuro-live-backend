@@ -5,6 +5,7 @@ import com.neurolive.neuro_live_backend.data.enums.StatusEnum;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -26,6 +27,7 @@ class UserLinkTest {
         assertNotNull(token);
         assertEquals(20, token.length());
         assertEquals(StatusEnum.PENDING, userLink.getStatus());
+        assertNotNull(userLink.getExpiresAt());
         assertTrue(userLink.validateToken(token));
     }
 
@@ -37,7 +39,31 @@ class UserLinkTest {
         userLink.activate();
 
         assertEquals(StatusEnum.ACTIVE, userLink.getStatus());
+        assertNotNull(userLink.getConsumedAt());
         assertFalse(userLink.validateToken());
+    }
+
+    @Test
+    void activateShouldAttachLinkedUserToGenericPatientToken() {
+        Patient patient = buildPatient(27L);
+        Caregiver caregiver = buildCaregiver(28L);
+        UserLink userLink = new UserLink(patient);
+        userLink.generateToken(LocalDateTime.now().plusMinutes(10));
+
+        userLink.activate(caregiver, LocalDateTime.now());
+
+        assertEquals(StatusEnum.ACTIVE, userLink.getStatus());
+        assertEquals(LinkTypeEnum.CAREGIVER, userLink.getLinkType());
+        assertEquals(28L, userLink.getLinkedUserId());
+    }
+
+    @Test
+    void validateTokenShouldRejectExpiredToken() {
+        Patient patient = buildPatient(29L);
+        UserLink userLink = new UserLink(patient);
+        String token = userLink.generateToken(LocalDateTime.now().plusMinutes(1));
+
+        assertFalse(userLink.validateToken(token, LocalDateTime.now().plusMinutes(2)));
     }
 
     @Test

@@ -12,7 +12,15 @@ public interface UserLinkRepository extends JpaRepository<UserLink, Long> {
 
     Optional<UserLink> findByToken(String token);
 
+    boolean existsByToken(String token);
+
     boolean existsByPatient_IdAndLinkedUser_IdAndStatus(Long patientId, Long linkedUserId, StatusEnum status);
 
     List<UserLink> findAllByPatient_IdAndStatus(Long patientId, StatusEnum status);
+
+    List<UserLink> findAllByPatient_IdAndStatusOrderByCreatedAtDesc(Long patientId, StatusEnum status);
+
+    List<UserLink> findAllByPatient_IdOrderByCreatedAtDesc(Long patientId);
+
+    List<UserLink> findAllByLinkedUser_IdOrderByCreatedAtDesc(Long linkedUserId);
 }
