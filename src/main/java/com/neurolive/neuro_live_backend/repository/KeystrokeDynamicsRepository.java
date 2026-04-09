@@ -9,4 +9,12 @@ import java.util.List;
 public interface KeystrokeDynamicsRepository extends JpaRepository<KeystrokeDynamics, Long> {
 
     List<KeystrokeDynamics> findAllByUserIdOrderByTimestampDesc(Long userId);
+
+    List<KeystrokeDynamics> findAllByUserIdAndTimestampBetweenOrderByTimestampAsc(
+            Long userId,
+            java.time.LocalDateTime start,
+            java.time.LocalDateTime end
+    );
+
+    java.util.Optional<KeystrokeDynamics> findTopByUserIdOrderByTimestampDesc(Long userId);
 }

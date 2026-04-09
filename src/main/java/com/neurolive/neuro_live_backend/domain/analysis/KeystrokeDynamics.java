@@ -40,13 +40,31 @@ public class KeystrokeDynamics {
     @Column(name = "flight_time", nullable = false, updatable = false)
     private float flightTime;
 
+    @Column(name = "session_id", length = 120, updatable = false)
+    private String sessionId;
+
+    @Column(name = "error_count", updatable = false)
+    private Integer errorCount;
+
+    @Column(name = "error_rate", updatable = false)
+    private Float errorRate;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime timestamp;
 
-    private KeystrokeDynamics(Long userId, Float dwellTime, Float flightTime, LocalDateTime timestamp) {
+    private KeystrokeDynamics(Long userId,
+                              String sessionId,
+                              Float dwellTime,
+                              Float flightTime,
+                              Integer errorCount,
+                              Float errorRate,
+                              LocalDateTime timestamp) {
         this.userId = validateUserId(userId);
+        this.sessionId = normalizeOptionalText(sessionId);
         this.dwellTime = validateTiming(dwellTime, "Dwell time");
         this.flightTime = validateTiming(flightTime, "Flight time");
+        this.errorCount = validateErrorCount(errorCount);
+        this.errorRate = validateErrorRate(errorRate);
         this.timestamp = resolveTimestamp(timestamp);
     }
 
@@ -54,15 +72,29 @@ public class KeystrokeDynamics {
                                             Float dwellTime,
                                             Float flightTime,
                                             LocalDateTime timestamp) {
-        return new KeystrokeDynamics(userId, dwellTime, flightTime, timestamp);
+        return new KeystrokeDynamics(userId, null, dwellTime, flightTime, null, null, timestamp);
+    }
+
+    public static KeystrokeDynamics capture(Long userId,
+                                            String sessionId,
+                                            Float dwellTime,
+                                            Float flightTime,
+                                            Integer errorCount,
+                                            Float errorRate,
+                                            LocalDateTime timestamp) {
+        return new KeystrokeDynamics(userId, sessionId, dwellTime, flightTime, errorCount, errorRate, timestamp);
     }
 
     // Deja la señal lista para futura evaluacion de crisis
     public EmotionalState analyzePattern() {
-        if (dwellTime >= CRISIS_DWELL_TIME_THRESHOLD || flightTime >= CRISIS_FLIGHT_TIME_THRESHOLD) {
+        if (dwellTime >= CRISIS_DWELL_TIME_THRESHOLD
+                || flightTime >= CRISIS_FLIGHT_TIME_THRESHOLD
+                || (errorRate != null && errorRate >= 0.25f)) {
             return EmotionalState.from(StateEnum.ACTIVE_CRISIS);
         }
-        if (dwellTime >= AT_RISK_DWELL_TIME_THRESHOLD || flightTime >= AT_RISK_FLIGHT_TIME_THRESHOLD) {
+        if (dwellTime >= AT_RISK_DWELL_TIME_THRESHOLD
+                || flightTime >= AT_RISK_FLIGHT_TIME_THRESHOLD
+                || (errorRate != null && errorRate >= 0.15f)) {
             return EmotionalState.from(StateEnum.RISK_ELEVATED);
         }
         return EmotionalState.from(StateEnum.NORMAL);
@@ -74,6 +106,9 @@ public class KeystrokeDynamics {
         validateUserId(userId);
         validateTiming(dwellTime, "Dwell time");
         validateTiming(flightTime, "Flight time");
+        validateErrorCount(errorCount);
+        validateErrorRate(errorRate);
+        sessionId = normalizeOptionalText(sessionId);
         timestamp = resolveTimestamp(timestamp);
     }
 
@@ -92,7 +127,36 @@ public class KeystrokeDynamics {
         return value;
     }
 
+    private Integer validateErrorCount(Integer value) {
+        if (value == null) {
+            return null;
+        }
+        if (value < 0) {
+            throw new IllegalArgumentException("Error count must be non-negative");
+        }
+        return value;
+    }
+
+    private Float validateErrorRate(Float value) {
+        if (value == null) {
+            return null;
+        }
+        if (!Float.isFinite(value) || value < 0.0f) {
+            throw new IllegalArgumentException("Error rate must be a finite non-negative value");
+        }
+        return value;
+    }
+
     private LocalDateTime resolveTimestamp(LocalDateTime timestamp) {
         return timestamp == null ? LocalDateTime.now() : timestamp;
+    }
+
+    private String normalizeOptionalText(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 }

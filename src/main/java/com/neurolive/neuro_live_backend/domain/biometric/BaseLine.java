@@ -25,7 +25,7 @@ import java.util.function.ToDoubleFunction;
 // Almacena la linea base biometrica calculada para un paciente.
 public class BaseLine {
 
-    static final Duration BASELINE_WINDOW = Duration.ofMinutes(5);
+    static final Duration DEFAULT_BASELINE_WINDOW = Duration.ofMinutes(5);
     private static final int MINIMUM_SAMPLE_COUNT = 2;
 
     @Id
@@ -50,7 +50,11 @@ public class BaseLine {
     }
 
     public BaseLine calculate(Collection<BiometricData> biometricSamples) {
-        return calculate(biometricSamples, sample -> 1.0d);
+        return calculate(biometricSamples, DEFAULT_BASELINE_WINDOW, sample -> 1.0d);
+    }
+
+    public BaseLine calculate(Collection<BiometricData> biometricSamples, Duration baselineWindow) {
+        return calculate(biometricSamples, baselineWindow, sample -> 1.0d);
     }
 
     public boolean isReady() {
@@ -63,17 +67,26 @@ public class BaseLine {
 
     public BaseLine calculate(Collection<BiometricData> biometricSamples,
                               ToDoubleFunction<BiometricData> weightFunction) {
+        return calculate(biometricSamples, DEFAULT_BASELINE_WINDOW, weightFunction);
+    }
+
+    public BaseLine calculate(Collection<BiometricData> biometricSamples,
+                              Duration baselineWindow,
+                              ToDoubleFunction<BiometricData> weightFunction) {
         if (patientId == null) {
             throw new IllegalStateException("Patient reference must be defined before baseline calculation");
+        }
+        if (baselineWindow == null || baselineWindow.isNegative() || baselineWindow.isZero()) {
+            throw new IllegalArgumentException("Baseline window must be greater than zero");
         }
         if (weightFunction == null) {
             throw new IllegalArgumentException("Weight function is required");
         }
 
         List<BiometricData> samples = normalizeSamples(biometricSamples);
-        List<BiometricData> baselineWindowSamples = extractBaselineWindow(samples);
+        List<BiometricData> baselineWindowSamples = extractBaselineWindow(samples, baselineWindow);
 
-        if (!hasEnoughData(baselineWindowSamples)) {
+        if (!hasEnoughData(baselineWindowSamples, baselineWindow)) {
             return this;
         }
 
@@ -118,24 +131,24 @@ public class BaseLine {
                 .toList();
     }
 
-    private List<BiometricData> extractBaselineWindow(List<BiometricData> samples) {
+    private List<BiometricData> extractBaselineWindow(List<BiometricData> samples, Duration baselineWindow) {
         if (samples.isEmpty()) {
             return List.of();
         }
 
-        LocalDateTime baselineWindowEnd = samples.getFirst().timestamp().plus(BASELINE_WINDOW);
+        LocalDateTime baselineWindowEnd = samples.getFirst().timestamp().plus(baselineWindow);
 
         return samples.stream()
                 .filter(sample -> !sample.timestamp().isAfter(baselineWindowEnd))
                 .toList();
     }
 
-    private boolean hasEnoughData(List<BiometricData> baselineWindowSamples) {
+    private boolean hasEnoughData(List<BiometricData> baselineWindowSamples, Duration baselineWindow) {
         if (baselineWindowSamples.size() < MINIMUM_SAMPLE_COUNT) {
             return false;
         }
 
-        LocalDateTime baselineWindowEnd = baselineWindowSamples.getFirst().timestamp().plus(BASELINE_WINDOW);
+        LocalDateTime baselineWindowEnd = baselineWindowSamples.getFirst().timestamp().plus(baselineWindow);
         return !baselineWindowSamples.getLast().timestamp().isBefore(baselineWindowEnd);
     }
 

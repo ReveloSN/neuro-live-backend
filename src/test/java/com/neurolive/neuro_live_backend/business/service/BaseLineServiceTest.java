@@ -1,5 +1,6 @@
 package com.neurolive.neuro_live_backend.business.service;
 
+import com.neurolive.neuro_live_backend.business.analysis.BaselineCalculator;
 import com.neurolive.neuro_live_backend.domain.biometric.BaseLine;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricData;
 import com.neurolive.neuro_live_backend.domain.user.Caregiver;
@@ -25,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,6 +39,9 @@ class BaseLineServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private BaselineCalculator baselineCalculator;
+
     @InjectMocks
     private BaseLineService baseLineService;
 
@@ -45,6 +50,13 @@ class BaseLineServiceTest {
         Patient patient = buildPatient(5L);
         when(userRepository.findById(5L)).thenReturn(Optional.of(patient));
         when(baseLineRepository.findByPatientId(5L)).thenReturn(Optional.empty());
+        when(baselineCalculator.calculate(any(BaseLine.class), anyCollection())).thenAnswer(invocation -> {
+            BaseLine baseLine = invocation.getArgument(0);
+            @SuppressWarnings("unchecked")
+            List<BiometricData> samples = (List<BiometricData>) invocation.getArgument(1);
+            baseLine.calculate(samples);
+            return baseLine;
+        });
         when(baseLineRepository.save(any(BaseLine.class))).thenAnswer(invocation -> {
             BaseLine baseLine = invocation.getArgument(0);
             setId(baseLine, 40L);
@@ -73,6 +85,13 @@ class BaseLineServiceTest {
         Patient patient = buildPatient(6L);
         when(userRepository.findById(6L)).thenReturn(Optional.of(patient));
         when(baseLineRepository.findByPatientId(6L)).thenReturn(Optional.empty());
+        when(baselineCalculator.calculate(any(BaseLine.class), anyCollection())).thenAnswer(invocation -> {
+            BaseLine baseLine = invocation.getArgument(0);
+            @SuppressWarnings("unchecked")
+            List<BiometricData> samples = (List<BiometricData>) invocation.getArgument(1);
+            baseLine.calculate(samples);
+            return baseLine;
+        });
         when(baseLineRepository.save(any(BaseLine.class))).thenAnswer(invocation -> invocation.getArgument(0));
         LocalDateTime sessionStart = LocalDateTime.of(2026, 3, 27, 10, 0);
 

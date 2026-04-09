@@ -1,5 +1,6 @@
 package com.neurolive.neuro_live_backend.business.service;
 
+import com.neurolive.neuro_live_backend.business.analysis.BaselineCalculator;
 import com.neurolive.neuro_live_backend.domain.biometric.BaseLine;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricData;
 import com.neurolive.neuro_live_backend.domain.user.Patient;
@@ -19,11 +20,14 @@ public class BaseLineService {
 
     private final BaseLineRepository baseLineRepository;
     private final UserRepository userRepository;
+    private final BaselineCalculator baselineCalculator;
 
     public BaseLineService(BaseLineRepository baseLineRepository,
-                           UserRepository userRepository) {
+                           UserRepository userRepository,
+                           BaselineCalculator baselineCalculator) {
         this.baseLineRepository = baseLineRepository;
         this.userRepository = userRepository;
+        this.baselineCalculator = baselineCalculator;
     }
 
     public BaseLine calculate(Long patientId, Collection<BiometricData> biometricSamples) {
@@ -32,7 +36,7 @@ public class BaseLineService {
         BaseLine baseLine = baseLineRepository.findByPatientId(patientId)
                 .orElseGet(() -> new BaseLine(patientId));
 
-        baseLine.calculate(biometricSamples);
+        baselineCalculator.calculate(baseLine, biometricSamples);
         return baseLineRepository.save(baseLine);
     }
 
