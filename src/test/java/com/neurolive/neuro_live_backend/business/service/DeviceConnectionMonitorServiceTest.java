@@ -1,12 +1,12 @@
 package com.neurolive.neuro_live_backend.business.service;
 
-import com.neurolive.neuro_live_backend.business.patterns.AuditoryRegulationStrategy;
+import com.neurolive.neuro_live_backend.business.patterns.AudioIntervention;
+import com.neurolive.neuro_live_backend.business.patterns.BreathingIntervention;
 import com.neurolive.neuro_live_backend.business.patterns.CrisisMediator;
-import com.neurolive.neuro_live_backend.business.patterns.GuidedBreathingStrategy;
-import com.neurolive.neuro_live_backend.business.patterns.LightingInterventionStrategy;
+import com.neurolive.neuro_live_backend.business.patterns.LightIntervention;
 import com.neurolive.neuro_live_backend.business.patterns.PatientStateObserver;
 import com.neurolive.neuro_live_backend.business.patterns.PatientStateUpdate;
-import com.neurolive.neuro_live_backend.business.patterns.UiReductionStrategy;
+import com.neurolive.neuro_live_backend.business.patterns.UIIntervention;
 import com.neurolive.neuro_live_backend.domain.biometric.Device;
 import com.neurolive.neuro_live_backend.infrastructure.config.TelemetryMonitoringProperties;
 import org.junit.jupiter.api.Test;
@@ -131,10 +131,10 @@ class DeviceConnectionMonitorServiceTest {
                 deviceService,
                 new CrisisMediator(
                         List.of(
-                                new UiReductionStrategy(),
-                                new GuidedBreathingStrategy(),
-                                new LightingInterventionStrategy(),
-                                new AuditoryRegulationStrategy()
+                                new UIIntervention(),
+                                new BreathingIntervention(),
+                                new LightIntervention(),
+                                new AudioIntervention()
                         ),
                         List.of(observer)
                 ),

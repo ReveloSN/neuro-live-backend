@@ -1,13 +1,11 @@
 package com.neurolive.neuro_live_backend.business.service;
 
 import com.neurolive.neuro_live_backend.business.patterns.CrisisMediator;
-import com.neurolive.neuro_live_backend.domain.biometric.ActivationThreshold;
 import com.neurolive.neuro_live_backend.domain.biometric.BaseLine;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricData;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricTelemetrySample;
 import com.neurolive.neuro_live_backend.domain.biometric.Device;
 import com.neurolive.neuro_live_backend.infrastructure.mqtt.TelemetryPayload;
-import com.neurolive.neuro_live_backend.repository.ActivationThresholdRepository;
 import com.neurolive.neuro_live_backend.repository.BiometricTelemetrySampleRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
@@ -28,20 +26,26 @@ public class TelemetryIngestionService {
     private final BiometricTelemetrySampleRepository biometricTelemetrySampleRepository;
     private final DeviceService deviceService;
     private final BaseLineService baseLineService;
-    private final ActivationThresholdRepository activationThresholdRepository;
+    private final ActivationThresholdService activationThresholdService;
+    private final RiskAssessmentService riskAssessmentService;
+    private final MonitoringConsentService monitoringConsentService;
     private final CrisisMediator crisisMediator;
     private final CrisisOutcomePersistenceService crisisOutcomePersistenceService;
 
     public TelemetryIngestionService(BiometricTelemetrySampleRepository biometricTelemetrySampleRepository,
             DeviceService deviceService,
             BaseLineService baseLineService,
-            ActivationThresholdRepository activationThresholdRepository,
+            ActivationThresholdService activationThresholdService,
+            RiskAssessmentService riskAssessmentService,
+            MonitoringConsentService monitoringConsentService,
             CrisisMediator crisisMediator,
             CrisisOutcomePersistenceService crisisOutcomePersistenceService) {
         this.biometricTelemetrySampleRepository = biometricTelemetrySampleRepository;
         this.deviceService = deviceService;
         this.baseLineService = baseLineService;
-        this.activationThresholdRepository = activationThresholdRepository;
+        this.activationThresholdService = activationThresholdService;
+        this.riskAssessmentService = riskAssessmentService;
+        this.monitoringConsentService = monitoringConsentService;
         this.crisisMediator = crisisMediator;
         this.crisisOutcomePersistenceService = crisisOutcomePersistenceService;
     }
@@ -52,6 +56,7 @@ public class TelemetryIngestionService {
         }
 
         Long patientId = validatePatientId(payload.patientId());
+        monitoringConsentService.assertMonitoringAllowed(patientId);
         BiometricData biometricData = new BiometricData(
                 requireMetric(payload.bpm(), "Telemetry BPM"),
                 requireMetric(payload.spo2(), "Telemetry SpO2"),
@@ -80,20 +85,30 @@ public class TelemetryIngestionService {
 
         Device updatedDevice = deviceService.registerTelemetry(device.getMacAddress(), biometricData.timestamp());
         BaseLine baseLine = baseLineService.updateFromTelemetry(patientId, loadPatientTelemetry(patientId));
-        ActivationThreshold activationThreshold = resolveActivationThreshold();
+        var activationThreshold = activationThresholdService.resolveForPatient(patientId);
+        RiskAssessmentService.AssessmentSnapshot assessmentSnapshot =
+                riskAssessmentService.assess(patientId, biometricData, baseLine);
 
         CrisisMediator.CrisisMediationResult crisisMediationResult = null;
         if (baseLine.isReady() || hasUsableThreshold(activationThreshold)) {
-            // Consulta linea base y umbrales disponibles
             crisisMediationResult = crisisMediator.mediate(
                     new CrisisMediator.CrisisEvaluationInput(
                             patientId,
                             biometricData,
                             baseLine,
                             activationThreshold,
-                            null));
+                            assessmentSnapshot.errorRate(),
+                            assessmentSnapshot.dwellTime(),
+                            assessmentSnapshot.flightTime(),
+                            assessmentSnapshot.errorCount(),
+                            assessmentSnapshot.inferredState()));
             if (crisisMediationResult.crisisDetected()) {
                 crisisOutcomePersistenceService.persist(crisisMediationResult);
+                deviceService.sendCommand(
+                        updatedDevice.getId(),
+                        buildCommand(crisisMediationResult.interventionProtocol()),
+                        LocalDateTime.now()
+                );
             }
         }
 
@@ -130,18 +145,28 @@ public class TelemetryIngestionService {
                 .toList();
     }
 
-    private ActivationThreshold resolveActivationThreshold() {
-        return activationThresholdRepository.findFirstByActiveTrueOrderByCreatedAtDesc()
-                .orElse(null);
-    }
-
-    private boolean hasUsableThreshold(ActivationThreshold activationThreshold) {
+    private boolean hasUsableThreshold(com.neurolive.neuro_live_backend.domain.biometric.ActivationThreshold activationThreshold) {
         return activationThreshold != null
                 && Boolean.TRUE.equals(activationThreshold.getActive())
                 && (activationThreshold.getBpmMin() != null
                         || activationThreshold.getBpmMax() != null
                         || activationThreshold.getSpo2Min() != null
                         || activationThreshold.getErrorRateMax() != null);
+    }
+
+    private String buildCommand(com.neurolive.neuro_live_backend.domain.crisis.InterventionProtocol interventionProtocol) {
+        if (interventionProtocol == null) {
+            return "CALM_MODE";
+        }
+
+        // Convierte el protocolo clinico en la orden concreta que entienden actuadores y clientes conectados.
+        return switch (interventionProtocol.getType().canonical()) {
+            case UI -> "UI_INTERVENTION";
+            case BREATHING -> "BREATHING_INTERVENTION";
+            case LIGHT -> "LIGHT_INTERVENTION";
+            case AUDIO -> "AUDIO_INTERVENTION";
+            default -> "CALM_MODE";
+        };
     }
 
     private Long validatePatientId(Long patientId) {

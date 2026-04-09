@@ -59,7 +59,7 @@ class CrisisEventTest {
         crisisEvent.close(
                 LocalDateTime.of(2026, 4, 1, 10, 7, 30),
                 StateEnum.NORMAL,
-                TypeEnum.GUIDED_BREATHING
+                TypeEnum.BREATHING
         );
 
         assertEquals(Duration.ofMinutes(7).plusSeconds(30), crisisEvent.calculateDuration());
@@ -76,7 +76,7 @@ class CrisisEventTest {
         crisisEvent.close(
                 LocalDateTime.of(2026, 4, 1, 11, 5),
                 StateEnum.RISK_ELEVATED,
-                TypeEnum.AUDITORY_REGULATION
+                TypeEnum.AUDIO
         );
         crisisEvent.attachSamData(7, 4);
 
@@ -97,7 +97,7 @@ class CrisisEventTest {
         crisisEvent.close(
                 LocalDateTime.of(2026, 4, 1, 11, 35),
                 StateEnum.NORMAL,
-                TypeEnum.LIGHTING_CONTROL
+                TypeEnum.LIGHT
         );
 
         IllegalArgumentException exception = assertThrows(
@@ -144,14 +144,14 @@ class CrisisEventTest {
                 LocalDateTime.of(2026, 4, 1, 11, 55)
         );
 
-        InterventionProtocol interventionProtocol = InterventionProtocol.builder(TypeEnum.GUIDED_BREATHING)
-                .breathingEnabled()
+        InterventionProtocol interventionProtocol = InterventionProtocol.builder(TypeEnum.BREATHING)
+                .breathingPattern(4, 6)
                 .build();
 
         crisisEvent.attachInterventionProtocol(interventionProtocol);
 
         assertEquals(interventionProtocol, crisisEvent.getInterventionProtocol());
-        assertEquals(TypeEnum.GUIDED_BREATHING, crisisEvent.getInterventionProtocol().getType());
+        assertEquals(TypeEnum.BREATHING, crisisEvent.getInterventionProtocol().getType());
         assertTrue(crisisEvent.isActive());
     }
 
@@ -166,18 +166,18 @@ class CrisisEventTest {
         crisisEvent.close(
                 LocalDateTime.of(2026, 4, 1, 12, 8),
                 StateEnum.RISK_ELEVATED,
-                TypeEnum.LIGHTING_CONTROL
+                TypeEnum.LIGHT
         );
 
         crisisEvent.attachInterventionProtocol(
-                InterventionProtocol.builder(TypeEnum.LIGHTING_CONTROL)
+                InterventionProtocol.builder(TypeEnum.LIGHT)
                         .light("blue", 55)
                         .active()
                         .build()
         );
 
         assertFalse(crisisEvent.isActive());
-        assertEquals(TypeEnum.LIGHTING_CONTROL, crisisEvent.getInterventionType());
+        assertEquals(TypeEnum.LIGHT, crisisEvent.getInterventionType());
         assertTrue(crisisEvent.getInterventionProtocol().getActive());
     }
 
@@ -190,19 +190,19 @@ class CrisisEventTest {
         );
 
         crisisEvent.attachInterventionProtocol(
-                InterventionProtocol.builder(TypeEnum.AUDITORY_REGULATION)
-                        .audioTrack("calm-track.mp3")
+                InterventionProtocol.builder(TypeEnum.AUDIO)
+                        .audioTrack("calm-track.mp3", 20)
                         .build()
         );
 
         crisisEvent.close(
                 LocalDateTime.of(2026, 4, 1, 12, 20),
                 StateEnum.RISK_ELEVATED,
-                TypeEnum.AUDITORY_REGULATION
+                TypeEnum.AUDIO
         );
 
         assertFalse(crisisEvent.isActive());
-        assertEquals(TypeEnum.AUDITORY_REGULATION, crisisEvent.getInterventionType());
+        assertEquals(TypeEnum.AUDIO, crisisEvent.getInterventionType());
         assertNotNull(crisisEvent.getInterventionProtocol());
     }
 

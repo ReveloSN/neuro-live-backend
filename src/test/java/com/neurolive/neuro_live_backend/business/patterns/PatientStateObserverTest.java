@@ -82,10 +82,10 @@ class PatientStateObserverTest {
 
     private CrisisMediator buildMediator() {
         return new CrisisMediator(List.of(
-                new UiReductionStrategy(),
-                new GuidedBreathingStrategy(),
-                new LightingInterventionStrategy(),
-                new AuditoryRegulationStrategy()
+                new UIIntervention(),
+                new BreathingIntervention(),
+                new LightIntervention(),
+                new AudioIntervention()
         ));
     }
 

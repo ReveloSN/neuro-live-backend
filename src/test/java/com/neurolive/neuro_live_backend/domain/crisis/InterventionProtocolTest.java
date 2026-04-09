@@ -14,11 +14,11 @@ class InterventionProtocolTest {
 
     @Test
     void shouldCreateValidInterventionProtocol() {
-        InterventionProtocol interventionProtocol = InterventionProtocol.builder(TypeEnum.LIGHTING_CONTROL)
+        InterventionProtocol interventionProtocol = InterventionProtocol.builder(TypeEnum.LIGHT)
                 .light("warm-blue", 60)
                 .build();
 
-        assertEquals(TypeEnum.LIGHTING_CONTROL, interventionProtocol.getType());
+        assertEquals(TypeEnum.LIGHT, interventionProtocol.getType());
         assertFalse(interventionProtocol.getActive());
         assertEquals("warm-blue", interventionProtocol.getLightColor());
         assertEquals(60, interventionProtocol.getLightIntensity());
@@ -37,8 +37,8 @@ class InterventionProtocolTest {
 
     @Test
     void shouldActivateProtocolCorrectly() {
-        InterventionProtocol interventionProtocol = InterventionProtocol.builder(TypeEnum.UI_REDUCTION)
-                .uiReductionEnabled()
+        InterventionProtocol interventionProtocol = InterventionProtocol.builder(TypeEnum.UI)
+                .uiMode("calm-focus", true)
                 .build();
 
         interventionProtocol.activate();
@@ -48,8 +48,8 @@ class InterventionProtocolTest {
 
     @Test
     void shouldDeactivateProtocolCorrectly() {
-        InterventionProtocol interventionProtocol = InterventionProtocol.builder(TypeEnum.UI_REDUCTION)
-                .uiReductionEnabled()
+        InterventionProtocol interventionProtocol = InterventionProtocol.builder(TypeEnum.UI)
+                .uiMode("calm-focus", true)
                 .active()
                 .build();
 
@@ -62,7 +62,7 @@ class InterventionProtocolTest {
     void shouldValidateOptionalConfigConsistently() {
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
-                () -> InterventionProtocol.builder(TypeEnum.AUDITORY_REGULATION)
+                () -> InterventionProtocol.builder(TypeEnum.AUDIO)
                         .light("red", 40)
                         .build()
         );
@@ -72,11 +72,12 @@ class InterventionProtocolTest {
 
     @Test
     void shouldBuildAudioProtocolCorrectly() {
-        InterventionProtocol interventionProtocol = InterventionProtocol.builder(TypeEnum.AUDITORY_REGULATION)
-                .audioTrack("focus-track.mp3")
+        InterventionProtocol interventionProtocol = InterventionProtocol.builder(TypeEnum.AUDIO)
+                .audioTrack("focus-track.mp3", 25)
                 .build();
 
         assertEquals("focus-track.mp3", interventionProtocol.getAudioTrack());
+        assertEquals(25, interventionProtocol.getAudioVolume());
         assertNotNull(interventionProtocol.getCreatedAt());
     }
 
@@ -84,7 +85,7 @@ class InterventionProtocolTest {
     void shouldRejectInvalidLightIntensity() {
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> InterventionProtocol.builder(TypeEnum.LIGHTING_CONTROL)
+                () -> InterventionProtocol.builder(TypeEnum.LIGHT)
                         .light("amber", 120)
                         .build()
         );
@@ -94,13 +95,15 @@ class InterventionProtocolTest {
 
     @Test
     void shouldBuildBreathingProtocolWithBuilder() {
-        InterventionProtocol interventionProtocol = InterventionProtocol.builder(TypeEnum.GUIDED_BREATHING)
-                .breathingEnabled()
+        InterventionProtocol interventionProtocol = InterventionProtocol.builder(TypeEnum.BREATHING)
+                .breathingPattern(4, 6)
                 .active()
                 .build();
 
-        assertEquals(TypeEnum.GUIDED_BREATHING, interventionProtocol.getType());
+        assertEquals(TypeEnum.BREATHING, interventionProtocol.getType());
         assertTrue(interventionProtocol.getBreathingEnabled());
+        assertEquals(4, interventionProtocol.getBreathingRhythm());
+        assertEquals(6, interventionProtocol.getBreathingCycles());
         assertTrue(interventionProtocol.getActive());
     }
 }

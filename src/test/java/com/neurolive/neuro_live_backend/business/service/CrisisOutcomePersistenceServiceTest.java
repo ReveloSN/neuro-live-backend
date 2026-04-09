@@ -89,7 +89,7 @@ class CrisisOutcomePersistenceServiceTest {
         ArgumentCaptor<CrisisEvent> eventCaptor = ArgumentCaptor.forClass(CrisisEvent.class);
         verify(crisisEventRepository).save(eventCaptor.capture());
         assertNotNull(eventCaptor.getValue().getInterventionProtocol());
-        assertEquals(TypeEnum.GUIDED_BREATHING, eventCaptor.getValue().getInterventionType());
+        assertEquals(TypeEnum.BREATHING, eventCaptor.getValue().getInterventionType());
     }
 
     @Test
@@ -103,7 +103,7 @@ class CrisisOutcomePersistenceServiceTest {
         CrisisEvent persistedEvent = crisisOutcomePersistenceService.persist(mediationResult).orElseThrow();
 
         assertSame(persistedEvent, persistedEvent.getInterventionProtocol().getCrisisEvent());
-        assertEquals(TypeEnum.GUIDED_BREATHING, persistedEvent.getInterventionProtocol().getType());
+        assertEquals(TypeEnum.BREATHING, persistedEvent.getInterventionProtocol().getType());
         assertTrue(persistedEvent.isActive());
     }
 
@@ -133,8 +133,8 @@ class CrisisOutcomePersistenceServiceTest {
                 StateEnum.ACTIVE_CRISIS,
                 LocalDateTime.of(2026, 4, 2, 12, 5)
         );
-        InterventionProtocol interventionProtocol = InterventionProtocol.builder(TypeEnum.GUIDED_BREATHING)
-                .breathingEnabled()
+        InterventionProtocol interventionProtocol = InterventionProtocol.builder(TypeEnum.BREATHING)
+                .breathingPattern(4, 6)
                 .build();
 
         return CrisisMediator.CrisisMediationResult.crisisDetected(

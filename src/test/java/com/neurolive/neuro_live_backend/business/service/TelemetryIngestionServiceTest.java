@@ -1,12 +1,12 @@
 package com.neurolive.neuro_live_backend.business.service;
 
-import com.neurolive.neuro_live_backend.business.patterns.AuditoryRegulationStrategy;
+import com.neurolive.neuro_live_backend.business.patterns.AudioIntervention;
+import com.neurolive.neuro_live_backend.business.patterns.BreathingIntervention;
 import com.neurolive.neuro_live_backend.business.patterns.CrisisMediator;
-import com.neurolive.neuro_live_backend.business.patterns.GuidedBreathingStrategy;
-import com.neurolive.neuro_live_backend.business.patterns.LightingInterventionStrategy;
+import com.neurolive.neuro_live_backend.business.patterns.LightIntervention;
 import com.neurolive.neuro_live_backend.business.patterns.PatientStateObserver;
 import com.neurolive.neuro_live_backend.business.patterns.PatientStateUpdate;
-import com.neurolive.neuro_live_backend.business.patterns.UiReductionStrategy;
+import com.neurolive.neuro_live_backend.business.patterns.UIIntervention;
 import com.neurolive.neuro_live_backend.data.enums.StateEnum;
 import com.neurolive.neuro_live_backend.domain.biometric.ActivationThreshold;
 import com.neurolive.neuro_live_backend.domain.biometric.BaseLine;
@@ -15,7 +15,6 @@ import com.neurolive.neuro_live_backend.domain.biometric.BiometricTelemetrySampl
 import com.neurolive.neuro_live_backend.domain.biometric.Device;
 import com.neurolive.neuro_live_backend.domain.crisis.EmotionalState;
 import com.neurolive.neuro_live_backend.infrastructure.mqtt.TelemetryPayload;
-import com.neurolive.neuro_live_backend.repository.ActivationThresholdRepository;
 import com.neurolive.neuro_live_backend.repository.BiometricTelemetrySampleRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,7 +52,13 @@ class TelemetryIngestionServiceTest {
     private BaseLineService baseLineService;
 
     @Mock
-    private ActivationThresholdRepository activationThresholdRepository;
+    private ActivationThresholdService activationThresholdService;
+
+    @Mock
+    private RiskAssessmentService riskAssessmentService;
+
+    @Mock
+    private MonitoringConsentService monitoringConsentService;
 
     @Mock
     private CrisisMediator crisisMediator;
@@ -76,7 +81,10 @@ class TelemetryIngestionServiceTest {
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt())).thenReturn(device);
         when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
-        when(activationThresholdRepository.findFirstByActiveTrueOrderByCreatedAtDesc()).thenReturn(Optional.empty());
+        when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
+        when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
+                new RiskAssessmentService.AssessmentSnapshot(null, null, null, null, StateEnum.NORMAL, "stable", "stable")
+        );
         when(crisisMediator.mediate(any())).thenReturn(CrisisMediator.CrisisMediationResult.withoutCrisis(
                 EmotionalState.from(StateEnum.NORMAL)
         ));
@@ -100,7 +108,10 @@ class TelemetryIngestionServiceTest {
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt())).thenReturn(device);
         when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
-        when(activationThresholdRepository.findFirstByActiveTrueOrderByCreatedAtDesc()).thenReturn(Optional.empty());
+        when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
+        when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
+                new RiskAssessmentService.AssessmentSnapshot(null, null, null, null, StateEnum.NORMAL, "stable", "stable")
+        );
         when(crisisMediator.mediate(any())).thenReturn(CrisisMediator.CrisisMediationResult.withoutCrisis(
                 EmotionalState.from(StateEnum.NORMAL)
         ));
@@ -123,7 +134,10 @@ class TelemetryIngestionServiceTest {
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt())).thenReturn(device);
         when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
-        when(activationThresholdRepository.findFirstByActiveTrueOrderByCreatedAtDesc()).thenReturn(Optional.of(activationThreshold));
+        when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(activationThreshold);
+        when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
+                new RiskAssessmentService.AssessmentSnapshot(null, null, null, null, StateEnum.NORMAL, "stable", "stable")
+        );
         when(crisisMediator.mediate(any())).thenReturn(CrisisMediator.CrisisMediationResult.withoutCrisis(
                 EmotionalState.from(StateEnum.NORMAL)
         ));
@@ -151,7 +165,10 @@ class TelemetryIngestionServiceTest {
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt())).thenReturn(device);
         when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
-        when(activationThresholdRepository.findFirstByActiveTrueOrderByCreatedAtDesc()).thenReturn(Optional.empty());
+        when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
+        when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
+                new RiskAssessmentService.AssessmentSnapshot(null, null, null, null, StateEnum.NORMAL, "stable", "stable")
+        );
 
         TelemetryIngestionResult result = telemetryIngestionService.ingest(payload);
 
@@ -186,7 +203,10 @@ class TelemetryIngestionServiceTest {
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt())).thenReturn(device);
         when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
-        when(activationThresholdRepository.findFirstByActiveTrueOrderByCreatedAtDesc()).thenReturn(Optional.empty());
+        when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
+        when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
+                new RiskAssessmentService.AssessmentSnapshot(0.32f, 280.0f, 330.0f, 5, StateEnum.ACTIVE_CRISIS, "error-dwell-flight", "acute")
+        );
         when(crisisMediator.mediate(any())).thenReturn(mediationResult);
 
         telemetryIngestionService.ingest(payload);
@@ -199,16 +219,18 @@ class TelemetryIngestionServiceTest {
         BiometricTelemetrySampleRepository sampleRepository = org.mockito.Mockito.mock(BiometricTelemetrySampleRepository.class);
         DeviceService localDeviceService = org.mockito.Mockito.mock(DeviceService.class);
         BaseLineService localBaseLineService = org.mockito.Mockito.mock(BaseLineService.class);
-        ActivationThresholdRepository localThresholdRepository = org.mockito.Mockito.mock(ActivationThresholdRepository.class);
+        ActivationThresholdService localThresholdService = org.mockito.Mockito.mock(ActivationThresholdService.class);
+        RiskAssessmentService localRiskAssessmentService = org.mockito.Mockito.mock(RiskAssessmentService.class);
+        MonitoringConsentService localMonitoringConsentService = org.mockito.Mockito.mock(MonitoringConsentService.class);
         CrisisOutcomePersistenceService localCrisisOutcomePersistenceService =
                 org.mockito.Mockito.mock(CrisisOutcomePersistenceService.class);
         RecordingObserver observer = new RecordingObserver();
         CrisisMediator actualMediator = new CrisisMediator(
                 List.of(
-                        new UiReductionStrategy(),
-                        new GuidedBreathingStrategy(),
-                        new LightingInterventionStrategy(),
-                        new AuditoryRegulationStrategy()
+                        new UIIntervention(),
+                        new BreathingIntervention(),
+                        new LightIntervention(),
+                        new AudioIntervention()
                 ),
                 List.of(observer)
         );
@@ -216,7 +238,9 @@ class TelemetryIngestionServiceTest {
                 sampleRepository,
                 localDeviceService,
                 localBaseLineService,
-                localThresholdRepository,
+                localThresholdService,
+                localRiskAssessmentService,
+                localMonitoringConsentService,
                 actualMediator,
                 localCrisisOutcomePersistenceService
         );
@@ -231,7 +255,10 @@ class TelemetryIngestionServiceTest {
         when(localDeviceService.registerTelemetry(payload.deviceMac(), payload.observedAt())).thenReturn(device);
         when(sampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
         when(localBaseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
-        when(localThresholdRepository.findFirstByActiveTrueOrderByCreatedAtDesc()).thenReturn(Optional.empty());
+        when(localThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
+        when(localRiskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
+                new RiskAssessmentService.AssessmentSnapshot(0.12f, 170.0f, 190.0f, 1, StateEnum.RISK_ELEVATED, "error-dwell", "elevated")
+        );
 
         TelemetryIngestionResult result = localService.ingest(payload);
 
@@ -281,9 +308,9 @@ class TelemetryIngestionServiceTest {
                         startedAt
                 ),
                 com.neurolive.neuro_live_backend.domain.crisis.InterventionProtocol.builder(
-                                com.neurolive.neuro_live_backend.data.enums.TypeEnum.GUIDED_BREATHING
+                                com.neurolive.neuro_live_backend.data.enums.TypeEnum.BREATHING
                         )
-                        .breathingEnabled()
+                        .breathingPattern(4, 6)
                         .build()
         );
     }

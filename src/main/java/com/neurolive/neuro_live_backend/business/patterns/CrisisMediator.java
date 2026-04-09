@@ -1,7 +1,6 @@
 package com.neurolive.neuro_live_backend.business.patterns;
 
 import com.neurolive.neuro_live_backend.data.enums.StateEnum;
-import com.neurolive.neuro_live_backend.data.enums.TypeEnum;
 import com.neurolive.neuro_live_backend.domain.biometric.ActivationThreshold;
 import com.neurolive.neuro_live_backend.domain.biometric.BaseLine;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricData;
@@ -34,7 +33,7 @@ public class CrisisMediator {
 
     @Autowired
     public CrisisMediator(List<InterventionStrategy> interventionStrategies,
-                          List<PatientStateObserver> initialObservers) {
+                        List<PatientStateObserver> initialObservers) {
         if (interventionStrategies == null || interventionStrategies.isEmpty()) {
             throw new IllegalArgumentException("At least one intervention strategy is required");
         }
@@ -77,16 +76,25 @@ public class CrisisMediator {
             return result;
         }
 
-        // Abre el evento cuando el riesgo supera el umbral
         CrisisEvent crisisEvent = CrisisEvent.open(
                 input.patientId(),
                 StateEnum.ACTIVE_CRISIS,
-                input.currentBiometricData().timestamp());
+                input.currentBiometricData().timestamp()
+        );
+        crisisEvent.recordTriggerMetrics(
+                input.currentBiometricData().bpm(),
+                input.currentBiometricData().spo2(),
+                input.typingErrorRate(),
+                input.dwellTime(),
+                input.flightTime(),
+                input.typingErrorCount()
+        );
 
         result = CrisisMediationResult.crisisDetected(
                 emotionalState,
                 crisisEvent,
-                prepareInitialIntervention(input));
+                prepareInitialIntervention(input)
+        );
         publishUpdate(buildPatientStateUpdate(input, result));
         return result;
     }
@@ -99,10 +107,10 @@ public class CrisisMediator {
     }
 
     private StateEnum evaluateState(CrisisEvaluationInput input) {
-        if (hasUsableThreshold(input.activationThreshold())) {
-            return evaluateWithThreshold(input);
-        }
-        return evaluateWithBaseline(input);
+        StateEnum inferredState = hasUsableThreshold(input.activationThreshold())
+                ? evaluateWithThreshold(input)
+                : evaluateWithBaseline(input);
+        return maxSeverity(inferredState, input.analysisStateHint());
     }
 
     private StateEnum evaluateWithThreshold(CrisisEvaluationInput input) {
@@ -136,13 +144,13 @@ public class CrisisMediator {
         return StateEnum.NORMAL;
     }
 
-    // Desacopla la seleccion de intervencion del mediador
     private InterventionProtocol prepareInitialIntervention(CrisisEvaluationInput input) {
+        // Elige la primera intervencion aplicable y arma el protocolo que luego se persiste y se envia al dispositivo.
         return interventionStrategies.stream()
-                .filter(strategy -> strategy.supports(input))
+                .filter(strategy -> strategy.isApplicable(input))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("No intervention strategy can prepare a protocol"))
-                .prepareProtocol(input);
+                .execute(input);
     }
 
     private boolean hasUsableThreshold(ActivationThreshold threshold) {
@@ -214,7 +222,6 @@ public class CrisisMediator {
         }
     }
 
-    // Notifica a los observadores suscritos
     private void notifyObservers(PatientStateUpdate update) {
         observers.forEach(observer -> observer.onPatientStateChanged(update));
     }
@@ -225,7 +232,23 @@ public class CrisisMediator {
                 result.emotionalState(),
                 result.crisisDetected(),
                 result.interventionPrepared(),
-                input.currentBiometricData().timestamp());
+                input.currentBiometricData().timestamp()
+        );
+    }
+
+    private StateEnum maxSeverity(StateEnum left, StateEnum right) {
+        if (right == null) {
+            return left;
+        }
+        return severityOf(right) > severityOf(left) ? right : left;
+    }
+
+    private int severityOf(StateEnum state) {
+        return switch (state) {
+            case NORMAL -> 0;
+            case RISK_ELEVATED -> 1;
+            case ACTIVE_CRISIS -> 2;
+        };
     }
 
     public record CrisisEvaluationInput(
@@ -233,7 +256,30 @@ public class CrisisMediator {
             BiometricData currentBiometricData,
             BaseLine baseLine,
             ActivationThreshold activationThreshold,
-            Float typingErrorRate) {
+            Float typingErrorRate,
+            Float dwellTime,
+            Float flightTime,
+            Integer typingErrorCount,
+            StateEnum analysisStateHint) {
+
+        public CrisisEvaluationInput(Long patientId,
+                                    BiometricData currentBiometricData,
+                                    BaseLine baseLine,
+                                    ActivationThreshold activationThreshold,
+                                    Float typingErrorRate) {
+            this(patientId, currentBiometricData, baseLine, activationThreshold, typingErrorRate, null, null, null, null);
+        }
+
+        public CrisisEvaluationInput(Long patientId,
+                                    BiometricData currentBiometricData,
+                                    BaseLine baseLine,
+                                    ActivationThreshold activationThreshold,
+                                    Float typingErrorRate,
+                                    Float dwellTime,
+                                    Float flightTime,
+                                    Integer typingErrorCount) {
+            this(patientId, currentBiometricData, baseLine, activationThreshold, typingErrorRate, dwellTime, flightTime, typingErrorCount, null);
+        }
 
         public CrisisEvaluationInput {
             if (patientId == null || patientId <= 0) {
@@ -244,6 +290,15 @@ public class CrisisMediator {
             }
             if (typingErrorRate != null && (!Float.isFinite(typingErrorRate) || typingErrorRate < 0.0f)) {
                 throw new IllegalArgumentException("Typing error rate must be a finite non-negative value");
+            }
+            if (dwellTime != null && (!Float.isFinite(dwellTime) || dwellTime < 0.0f)) {
+                throw new IllegalArgumentException("Typing dwell time must be a finite non-negative value");
+            }
+            if (flightTime != null && (!Float.isFinite(flightTime) || flightTime < 0.0f)) {
+                throw new IllegalArgumentException("Typing flight time must be a finite non-negative value");
+            }
+            if (typingErrorCount != null && typingErrorCount < 0) {
+                throw new IllegalArgumentException("Typing error count must be non-negative");
             }
             if (baseLine != null
                     && baseLine.getPatientId() != null
@@ -293,14 +348,13 @@ public class CrisisMediator {
             }
         }
 
-        // Mantiene el resultado listo para capas superiores
         public static CrisisMediationResult withoutCrisis(EmotionalState emotionalState) {
             return new CrisisMediationResult(emotionalState, null, null, false, false);
         }
 
         public static CrisisMediationResult crisisDetected(EmotionalState emotionalState,
-                CrisisEvent crisisEvent,
-                InterventionProtocol interventionProtocol) {
+                                                        CrisisEvent crisisEvent,
+                                                        InterventionProtocol interventionProtocol) {
             return new CrisisMediationResult(emotionalState, crisisEvent, interventionProtocol, true, true);
         }
     }

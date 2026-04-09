@@ -127,13 +127,15 @@ class CrisisMediatorTest {
         );
 
         assertNotNull(result.interventionProtocol());
-        assertEquals(TypeEnum.GUIDED_BREATHING, result.interventionProtocol().getType());
+        assertEquals(TypeEnum.BREATHING, result.interventionProtocol().getType());
         assertEquals(Boolean.FALSE, result.interventionProtocol().getActive());
         assertEquals(Boolean.TRUE, result.interventionProtocol().getBreathingEnabled());
+        assertEquals(4, result.interventionProtocol().getBreathingRhythm());
+        assertEquals(6, result.interventionProtocol().getBreathingCycles());
     }
 
     @Test
-    void shouldDelegateToUiReductionStrategyWhenTypingErrorRateTriggersCrisis() {
+    void shouldDelegateToUiInterventionWhenTypingErrorRateTriggersCrisis() {
         BaseLine baseLine = buildReadyBaseLine(49L, 80.0f, 98.0f);
         BiometricData currentBiometricData = new BiometricData(
                 84.0f,
@@ -145,7 +147,7 @@ class CrisisMediatorTest {
                 new CrisisMediator.CrisisEvaluationInput(49L, currentBiometricData, baseLine, null, 0.30f)
         );
 
-        assertEquals(TypeEnum.UI_REDUCTION, result.interventionProtocol().getType());
+        assertEquals(TypeEnum.UI, result.interventionProtocol().getType());
         assertEquals(Boolean.TRUE, result.interventionProtocol().getUiReductionEnabled());
     }
 
@@ -203,10 +205,10 @@ class CrisisMediatorTest {
 
     private CrisisMediator buildMediator() {
         return new CrisisMediator(List.of(
-                new UiReductionStrategy(),
-                new GuidedBreathingStrategy(),
-                new LightingInterventionStrategy(),
-                new AuditoryRegulationStrategy()
+                new UIIntervention(),
+                new BreathingIntervention(),
+                new LightIntervention(),
+                new AudioIntervention()
         ));
     }
 }

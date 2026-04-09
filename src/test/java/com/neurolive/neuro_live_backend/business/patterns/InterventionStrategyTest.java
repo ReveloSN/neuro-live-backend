@@ -17,8 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class InterventionStrategyTest {
 
     @Test
-    void shouldPrepareGuidedBreathingProtocolThroughStrategy() {
-        GuidedBreathingStrategy strategy = new GuidedBreathingStrategy();
+    void shouldPrepareBreathingProtocolThroughStrategy() {
+        BreathingIntervention strategy = new BreathingIntervention();
 
         InterventionProtocol interventionProtocol = strategy.prepareProtocol(
                 new CrisisMediator.CrisisEvaluationInput(
@@ -30,13 +30,15 @@ class InterventionStrategyTest {
                 )
         );
 
-        assertEquals(TypeEnum.GUIDED_BREATHING, interventionProtocol.getType());
+        assertEquals(TypeEnum.BREATHING, interventionProtocol.getType());
         assertEquals(Boolean.TRUE, interventionProtocol.getBreathingEnabled());
+        assertEquals(4, interventionProtocol.getBreathingRhythm());
+        assertEquals(6, interventionProtocol.getBreathingCycles());
     }
 
     @Test
     void shouldPrepareLightingProtocolThroughStrategy() {
-        LightingInterventionStrategy strategy = new LightingInterventionStrategy();
+        LightIntervention strategy = new LightIntervention();
 
         InterventionProtocol interventionProtocol = strategy.prepareProtocol(
                 new CrisisMediator.CrisisEvaluationInput(
@@ -48,14 +50,14 @@ class InterventionStrategyTest {
                 )
         );
 
-        assertEquals(TypeEnum.LIGHTING_CONTROL, interventionProtocol.getType());
+        assertEquals(TypeEnum.LIGHT, interventionProtocol.getType());
         assertEquals("blue", interventionProtocol.getLightColor());
         assertEquals(55, interventionProtocol.getLightIntensity());
     }
 
     @Test
     void shouldPrepareAuditoryRegulationProtocolThroughStrategy() {
-        AuditoryRegulationStrategy strategy = new AuditoryRegulationStrategy();
+        AudioIntervention strategy = new AudioIntervention();
 
         InterventionProtocol interventionProtocol = strategy.prepareProtocol(
                 new CrisisMediator.CrisisEvaluationInput(
@@ -67,13 +69,14 @@ class InterventionStrategyTest {
                 )
         );
 
-        assertEquals(TypeEnum.AUDITORY_REGULATION, interventionProtocol.getType());
+        assertEquals(TypeEnum.AUDIO, interventionProtocol.getType());
         assertEquals("calm-default", interventionProtocol.getAudioTrack());
+        assertEquals(35, interventionProtocol.getAudioVolume());
     }
 
     @Test
-    void shouldPrepareUiReductionProtocolThroughStrategy() {
-        UiReductionStrategy strategy = new UiReductionStrategy();
+    void shouldPrepareUiProtocolThroughStrategy() {
+        UIIntervention strategy = new UIIntervention();
 
         InterventionProtocol interventionProtocol = strategy.prepareProtocol(
                 new CrisisMediator.CrisisEvaluationInput(
@@ -85,17 +88,19 @@ class InterventionStrategyTest {
                 )
         );
 
-        assertEquals(TypeEnum.UI_REDUCTION, interventionProtocol.getType());
+        assertEquals(TypeEnum.UI, interventionProtocol.getType());
         assertEquals(Boolean.TRUE, interventionProtocol.getUiReductionEnabled());
+        assertEquals("calm-focus", interventionProtocol.getUiTheme());
+        assertEquals(Boolean.TRUE, interventionProtocol.getHighContrastEnabled());
     }
 
     @Test
     void shouldAllowCrisisMediatorToDelegateToAStrategy() {
         CrisisMediator crisisMediator = new CrisisMediator(List.of(
-                new UiReductionStrategy(),
-                new GuidedBreathingStrategy(),
-                new LightingInterventionStrategy(),
-                new AuditoryRegulationStrategy()
+                new UIIntervention(),
+                new BreathingIntervention(),
+                new LightIntervention(),
+                new AudioIntervention()
         ));
 
         CrisisMediator.CrisisMediationResult result = crisisMediator.mediate(
@@ -108,12 +113,37 @@ class InterventionStrategyTest {
                 )
         );
 
-        assertEquals(TypeEnum.AUDITORY_REGULATION, result.interventionProtocol().getType());
+        assertEquals(TypeEnum.AUDIO, result.interventionProtocol().getType());
+    }
+
+    @Test
+    void shouldKeepDeprecatedWrappersDelegatingToRenamedStrategies() {
+        InterventionProtocol uiProtocol = new UiReductionStrategy().prepareProtocol(
+                new CrisisMediator.CrisisEvaluationInput(
+                        57L,
+                        new BiometricData(85.0f, 97.0f, LocalDateTime.of(2026, 4, 1, 15, 22)),
+                        buildReadyBaseLine(57L, 80.0f, 98.0f),
+                        null,
+                        0.30f
+                )
+        );
+        InterventionProtocol breathingProtocol = new GuidedBreathingStrategy().prepareProtocol(
+                new CrisisMediator.CrisisEvaluationInput(
+                        58L,
+                        new BiometricData(105.0f, 92.0f, LocalDateTime.of(2026, 4, 1, 15, 23)),
+                        buildReadyBaseLine(58L, 80.0f, 98.0f),
+                        null,
+                        null
+                )
+        );
+
+        assertEquals(TypeEnum.UI, uiProtocol.getType());
+        assertEquals(TypeEnum.BREATHING, breathingProtocol.getType());
     }
 
     @Test
     void shouldKeepCurrentCrisisDomainModelStable() {
-        GuidedBreathingStrategy strategy = new GuidedBreathingStrategy();
+        BreathingIntervention strategy = new BreathingIntervention();
 
         InterventionProtocol interventionProtocol = strategy.prepareProtocol(
                 new CrisisMediator.CrisisEvaluationInput(
