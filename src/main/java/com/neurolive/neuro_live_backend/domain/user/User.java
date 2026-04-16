@@ -1,5 +1,6 @@
 package com.neurolive.neuro_live_backend.domain.user;
 
+import com.neurolive.neuro_live_backend.data.exception.AuthenticationFailedException;
 import com.neurolive.neuro_live_backend.data.enums.RoleEnum;
 import com.neurolive.neuro_live_backend.data.exception.UnauthorizedAccessException;
 import jakarta.persistence.Column;
@@ -100,7 +101,7 @@ public abstract class User {
             throw new IllegalArgumentException("Password validation is required");
         }
         if (!passwordMatches.test(rawPassword)) {
-            throw new IllegalArgumentException("Invalid credentials");
+            throw new AuthenticationFailedException("Invalid credentials");
         }
         if (sessionTokenSupplier == null) {
             throw new IllegalArgumentException("Session token generation is required");
