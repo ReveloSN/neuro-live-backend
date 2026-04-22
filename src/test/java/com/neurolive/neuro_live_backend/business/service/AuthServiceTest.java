@@ -1,5 +1,6 @@
 package com.neurolive.neuro_live_backend.business.service;
 
+import com.neurolive.neuro_live_backend.data.exception.AuthenticationFailedException;
 import com.neurolive.neuro_live_backend.data.enums.RoleEnum;
 import com.neurolive.neuro_live_backend.domain.user.Patient;
 import com.neurolive.neuro_live_backend.domain.user.PersonalUser;
@@ -25,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -113,6 +115,27 @@ class AuthServiceTest {
     }
 
     @Test
+    void loginShouldNormalizeEmailBeforeLookup() {
+        LoginRequest request = new LoginRequest();
+        request.setEmail("Patient@NeuroLive.Test");
+        request.setPassword("plain-secret");
+
+        Patient patient = new Patient();
+        patient.register("Patient One", "patient@neurolive.test", "encoded-secret");
+        setId(patient, 13L);
+
+        when(userRepository.findByEmail(eq("patient@neurolive.test"))).thenReturn(Optional.of(patient));
+        when(passwordEncoder.matches("plain-secret", "encoded-secret")).thenReturn(true);
+        when(jwtService.generateToken(patient)).thenReturn("jwt-token");
+
+        LoginResponse response = authService.login(request);
+
+        assertEquals(13L, response.getId());
+        assertEquals("patient@neurolive.test", response.getEmail());
+        verify(userRepository).findByEmail("patient@neurolive.test");
+    }
+
+    @Test
     void loginShouldRejectInvalidCredentials() {
         LoginRequest request = new LoginRequest();
         request.setEmail("patient@neurolive.test");
@@ -123,7 +146,7 @@ class AuthServiceTest {
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(patient));
         when(passwordEncoder.matches("wrong-secret", "encoded-secret")).thenReturn(false);
 
-        assertThrows(IllegalArgumentException.class, () -> authService.login(request));
+        assertThrows(AuthenticationFailedException.class, () -> authService.login(request));
     }
 
     private void setId(User user, Long id) {

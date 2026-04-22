@@ -2,6 +2,7 @@ package com.neurolive.neuro_live_backend.presentation.controller;
 
 import com.neurolive.neuro_live_backend.data.exception.CrisisNotFoundException;
 import com.neurolive.neuro_live_backend.data.exception.DeviceNotLinkedException;
+import com.neurolive.neuro_live_backend.data.exception.AuthenticationFailedException;
 import com.neurolive.neuro_live_backend.data.exception.UnauthorizedAccessException;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -33,6 +34,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException exception) {
         return build(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
+
+    @ExceptionHandler(AuthenticationFailedException.class)
+    public ResponseEntity<Map<String, String>> handleAuthenticationFailed(AuthenticationFailedException exception) {
+        return build(HttpStatus.UNAUTHORIZED, exception.getMessage());
     }
 
     @ExceptionHandler(EntityNotFoundException.class)

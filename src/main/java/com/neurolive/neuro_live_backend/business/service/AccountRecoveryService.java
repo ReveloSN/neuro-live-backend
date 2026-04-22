@@ -4,6 +4,7 @@ import com.neurolive.neuro_live_backend.domain.user.AccountRecoveryToken;
 import com.neurolive.neuro_live_backend.domain.user.User;
 import com.neurolive.neuro_live_backend.repository.AccountRecoveryTokenRepository;
 import com.neurolive.neuro_live_backend.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,7 +23,6 @@ import java.util.Optional;
 @Transactional
 public class AccountRecoveryService {
 
-    private static final Duration TOKEN_TTL = Duration.ofMinutes(15);
     private static final String GENERIC_RECOVERY_MESSAGE =
             "If the email exists, recovery instructions were sent";
 
@@ -30,27 +30,43 @@ public class AccountRecoveryService {
     private final AccountRecoveryTokenRepository accountRecoveryTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final AccountRecoveryMailService accountRecoveryMailService;
+    private final Duration tokenTtl;
+    private final Duration requestCooldown;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public AccountRecoveryService(UserRepository userRepository,
-                                  AccountRecoveryTokenRepository accountRecoveryTokenRepository,
-                                  PasswordEncoder passwordEncoder,
-                                  AccountRecoveryMailService accountRecoveryMailService) {
+                                AccountRecoveryTokenRepository accountRecoveryTokenRepository,
+                                PasswordEncoder passwordEncoder,
+                                AccountRecoveryMailService accountRecoveryMailService,
+                                @Value("${account-recovery.token-expiration-minutes:15}") long tokenExpirationMinutes,
+                                @Value("${account-recovery.request-cooldown-seconds:60}") long requestCooldownSeconds) {
         this.userRepository = userRepository;
         this.accountRecoveryTokenRepository = accountRecoveryTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.accountRecoveryMailService = accountRecoveryMailService;
+        this.tokenTtl = validateMinutes(tokenExpirationMinutes, "Account recovery token expiration");
+        this.requestCooldown = validateSeconds(requestCooldownSeconds, "Account recovery request cooldown");
     }
 
     public RecoveryStatus requestRecovery(String email) {
         String normalizedEmail = normalizeEmail(email);
         Optional<User> optionalUser = userRepository.findByEmail(normalizedEmail);
         if (optionalUser.isEmpty()) {
-            return new RecoveryStatus(GENERIC_RECOVERY_MESSAGE, null, false);
+            return genericRequestStatus();
         }
 
         User user = optionalUser.get();
         LocalDateTime now = LocalDateTime.now();
+        Optional<AccountRecoveryToken> activeToken = accountRecoveryTokenRepository
+                .findFirstByEmailAndConsumedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(
+                        normalizedEmail,
+                        now
+                );
+
+        if (activeToken.isPresent() && !activeToken.get().getCreatedAt().isBefore(now.minus(requestCooldown))) {
+            return genericRequestStatus();
+        }
+
         accountRecoveryTokenRepository.findAllByUserIdAndConsumedAtIsNullAndExpiresAtAfter(user.getId(), now)
                 .forEach(token -> safeConsume(token, now));
 
@@ -59,12 +75,12 @@ public class AccountRecoveryService {
                 user.getId(),
                 user.getEmail(),
                 hashToken(rawToken),
-                now.plus(TOKEN_TTL)
+                now.plus(tokenTtl)
         );
         accountRecoveryTokenRepository.save(accountRecoveryToken);
         accountRecoveryMailService.sendRecoveryToken(user.getEmail(), rawToken, accountRecoveryToken.getExpiresAt());
 
-        return new RecoveryStatus("Recovery token generated", accountRecoveryToken.getExpiresAt(), true);
+        return genericRequestStatus();
     }
 
     @Transactional(readOnly = true)
@@ -97,6 +113,9 @@ public class AccountRecoveryService {
                 )
                 .orElseThrow(() -> new IllegalArgumentException("Recovery token is invalid or expired"));
 
+        if (!accountRecoveryToken.isActive(now)) {
+            throw new IllegalArgumentException("Recovery token is invalid or expired");
+        }
         if (!accountRecoveryToken.matches(hashToken(rawToken))) {
             throw new IllegalArgumentException("Recovery token is invalid or expired");
         }
@@ -136,6 +155,24 @@ public class AccountRecoveryService {
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is not available for token hashing", exception);
         }
+    }
+
+    private RecoveryStatus genericRequestStatus() {
+        return new RecoveryStatus(GENERIC_RECOVERY_MESSAGE, null, true);
+    }
+
+    private Duration validateMinutes(long value, String name) {
+        if (value <= 0) {
+            throw new IllegalArgumentException(name + " must be positive");
+        }
+        return Duration.ofMinutes(value);
+    }
+
+    private Duration validateSeconds(long value, String name) {
+        if (value <= 0) {
+            throw new IllegalArgumentException(name + " must be positive");
+        }
+        return Duration.ofSeconds(value);
     }
 
     public record RecoveryStatus(String message, LocalDateTime expiresAt, boolean valid) {

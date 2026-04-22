@@ -26,6 +26,8 @@ class DeviceTest {
         assertEquals("AA:BB:CC:DD:EE:FF", device.getMacAddress());
         assertFalse(device.getIsConnected());
         assertNull(device.getLastConnection());
+        assertEquals(Boolean.TRUE, device.getSensorContact());
+        assertTrue(device.getLinkedAt() != null);
         assertEquals("breathing", device.getFallBackConfig());
     }
 
@@ -53,6 +55,19 @@ class DeviceTest {
         assertTrue(disconnected);
         assertFalse(device.getIsConnected());
         assertEquals(lastPing, device.getLastConnection());
+    }
+
+    @Test
+    void recordTelemetryShouldUpdateSensorContactWhenReported() {
+        Device device = new Device();
+        device.register(13L, "AA:BB:CC:DD:EE:13", null);
+        LocalDateTime observedAt = LocalDateTime.of(2026, 4, 9, 18, 5);
+
+        device.recordTelemetry(observedAt, Boolean.FALSE);
+
+        assertTrue(device.getIsConnected());
+        assertEquals(observedAt, device.getLastConnection());
+        assertTrue(device.hasSensorContactIssue());
     }
 
     @Test

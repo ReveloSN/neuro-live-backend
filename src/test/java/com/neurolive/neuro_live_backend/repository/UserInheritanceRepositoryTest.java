@@ -1,5 +1,6 @@
 package com.neurolive.neuro_live_backend.repository;
 
+import com.neurolive.neuro_live_backend.NeuroLiveBackendApplication;
 import com.neurolive.neuro_live_backend.data.enums.RoleEnum;
 import com.neurolive.neuro_live_backend.domain.user.Caregiver;
 import com.neurolive.neuro_live_backend.domain.user.Patient;
@@ -13,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest
+@SpringBootTest(classes = NeuroLiveBackendApplication.class)
 @Transactional
 // Prueba la persistencia de la jerarquia de usuarios en el repositorio.
 class UserInheritanceRepositoryTest {

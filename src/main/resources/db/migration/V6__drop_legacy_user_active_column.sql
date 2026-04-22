@@ -1,0 +1,12 @@
+UPDATE users
+SET is_active = TRUE
+WHERE is_active IS NULL;
+
+ALTER TABLE users
+ALTER COLUMN is_active SET DEFAULT TRUE;
+
+ALTER TABLE users
+ALTER COLUMN is_active SET NOT NULL;
+
+ALTER TABLE users
+DROP COLUMN IF EXISTS active;

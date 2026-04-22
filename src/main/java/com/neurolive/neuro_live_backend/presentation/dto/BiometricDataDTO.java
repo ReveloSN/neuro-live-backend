@@ -1,6 +1,6 @@
 package com.neurolive.neuro_live_backend.presentation.dto;
 
-import com.neurolive.neuro_live_backend.infrastructure.mqtt.TelemetryPayload;
+import com.neurolive.neuro_live_backend.presentation.dto.TelemetryPayload;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -12,10 +12,12 @@ public record BiometricDataDTO(
         @NotBlank String deviceMac,
         @NotNull @Positive Float bpm,
         @NotNull @Positive Float spo2,
-        @NotNull LocalDateTime observedAt
+        @NotNull LocalDateTime observedAt,
+        Boolean sensorContact
 ) {
 
+    // Convierte el DTO REST al mismo payload que usa la ingesta interna.
     public TelemetryPayload toPayload() {
-        return new TelemetryPayload(patientId, deviceMac, bpm, spo2, observedAt);
+        return new TelemetryPayload(patientId, deviceMac, bpm, spo2, observedAt, sensorContact);
     }
 }

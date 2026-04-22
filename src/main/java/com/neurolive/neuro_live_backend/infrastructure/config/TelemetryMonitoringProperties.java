@@ -9,6 +9,8 @@ public class TelemetryMonitoringProperties {
 
     private long disconnectTimeoutSeconds = 5L;
     private long disconnectCheckIntervalSeconds = 1L;
+    private long expectedTelemetryIntervalSeconds = 1L;
+    private long disconnectGracePeriods = 1L;
 
     public long getDisconnectTimeoutSeconds() {
         return disconnectTimeoutSeconds;
@@ -24,5 +26,21 @@ public class TelemetryMonitoringProperties {
 
     public void setDisconnectCheckIntervalSeconds(long disconnectCheckIntervalSeconds) {
         this.disconnectCheckIntervalSeconds = disconnectCheckIntervalSeconds;
+    }
+
+    public long getExpectedTelemetryIntervalSeconds() {
+        return expectedTelemetryIntervalSeconds;
+    }
+
+    public void setExpectedTelemetryIntervalSeconds(long expectedTelemetryIntervalSeconds) {
+        this.expectedTelemetryIntervalSeconds = expectedTelemetryIntervalSeconds;
+    }
+
+    public long getDisconnectGracePeriods() {
+        return disconnectGracePeriods;
+    }
+
+    public void setDisconnectGracePeriods(long disconnectGracePeriods) {
+        this.disconnectGracePeriods = disconnectGracePeriods;
     }
 }

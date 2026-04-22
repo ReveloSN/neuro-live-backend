@@ -1,5 +1,6 @@
 package com.neurolive.neuro_live_backend.business.service;
 
+import com.neurolive.neuro_live_backend.data.exception.AuthenticationFailedException;
 import com.neurolive.neuro_live_backend.domain.user.User;
 import com.neurolive.neuro_live_backend.infrastructure.security.JwtService;
 import com.neurolive.neuro_live_backend.presentation.dto.LoginRequest;
@@ -9,6 +10,8 @@ import com.neurolive.neuro_live_backend.presentation.dto.RegisterResponse;
 import com.neurolive.neuro_live_backend.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.Locale;
 
 @Service
 // Orquesta el registro y el inicio de sesion de usuarios.
@@ -27,14 +30,16 @@ public class AuthService {
     }
 
     public RegisterResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
+        String normalizedEmail = normalizeEmail(request.getEmail());
+
+        if (userRepository.existsByEmail(normalizedEmail)) {
             throw new IllegalArgumentException("Email already registered");
         }
 
         User user = User.createForRole(request.getRole());
         user.register(
                 request.getName(),
-                request.getEmail(),
+                normalizedEmail,
                 passwordEncoder.encode(request.getPassword())
         );
 
@@ -50,8 +55,10 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
+        String normalizedEmail = normalizeEmail(request.getEmail());
+
+        User user = userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new AuthenticationFailedException("Invalid credentials"));
 
         String token = user.authenticate(
                 request.getPassword(),
@@ -67,5 +74,13 @@ public class AuthService {
                 token,
                 "Login successful"
         );
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return email;
+        }
+
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 }

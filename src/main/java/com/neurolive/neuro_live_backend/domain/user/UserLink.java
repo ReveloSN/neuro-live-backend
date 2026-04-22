@@ -18,6 +18,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Entity
@@ -27,6 +28,8 @@ import java.time.LocalDateTime;
 // Modela la relacion entre un paciente y otro usuario vinculado.
 public class UserLink {
 
+    private static final Duration DEFAULT_TOKEN_TTL = Duration.ofMinutes(15);
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -35,12 +38,12 @@ public class UserLink {
     @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "linked_user_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "linked_user_id")
     private User linkedUser;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "link_type", nullable = false, length = 20)
+    @Column(name = "link_type", length = 20)
     private LinkTypeEnum linkType;
 
     @Column(nullable = false, unique = true, length = 32)
@@ -52,6 +55,17 @@ public class UserLink {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
+
+    @Column(name = "consumed_at")
+    private LocalDateTime consumedAt;
+
+    public UserLink(Patient patient) {
+        this.patient = validatePatient(patient);
+        this.status = StatusEnum.PENDING;
+    }
 
     public UserLink(Patient patient, User linkedUser, LinkTypeEnum linkType) {
         this.patient = validatePatient(patient);
@@ -69,7 +83,13 @@ public class UserLink {
     }
 
     public String generateToken() {
+        return generateToken(LocalDateTime.now().plus(DEFAULT_TOKEN_TTL));
+    }
+
+    public String generateToken(LocalDateTime expiresAt) {
         validatePatient(patient);
+        this.expiresAt = normalizeExpiration(expiresAt);
+        this.consumedAt = null;
         token = patient.generateLinkToken();
         status = StatusEnum.PENDING;
         if (createdAt == null) {
@@ -79,21 +99,49 @@ public class UserLink {
     }
 
     public boolean validateToken() {
-        return token != null && !token.isBlank() && status == StatusEnum.PENDING;
+        return validateToken(LocalDateTime.now());
+    }
+
+    public boolean validateToken(LocalDateTime referenceTime) {
+        return token != null
+                && !token.isBlank()
+                && status == StatusEnum.PENDING
+                && consumedAt == null
+                && !isExpired(referenceTime);
     }
 
     public boolean validateToken(String providedToken) {
+        return validateToken(providedToken, LocalDateTime.now());
+    }
+
+    public boolean validateToken(String providedToken, LocalDateTime referenceTime) {
         if (providedToken == null || providedToken.isBlank()) {
             return false;
         }
-        return validateToken() && token.equals(providedToken.trim());
+        return validateToken(referenceTime) && token.equals(providedToken.trim().toUpperCase());
     }
 
     public void activate() {
-        if (!validateToken()) {
+        if (linkedUser == null) {
+            throw new IllegalStateException("Linked user is required for activation");
+        }
+        activate(linkedUser, LocalDateTime.now());
+    }
+
+    public void activate(User linkedUser, LocalDateTime consumedAt) {
+        if (!validateToken(consumedAt == null ? LocalDateTime.now() : consumedAt)) {
             throw new IllegalStateException("Link token is not valid for activation");
         }
+        User validatedUser = validateLinkedUser(linkedUser, resolveLinkType(linkedUser));
+        if (patient.getId() != null
+                && validatedUser.getId() != null
+                && patient.getId().equals(validatedUser.getId())) {
+            throw new IllegalArgumentException("Patient cannot link to the same account");
+        }
+        this.linkedUser = validatedUser;
+        this.linkType = resolveLinkType(validatedUser);
         status = StatusEnum.ACTIVE;
+        this.consumedAt = consumedAt == null ? LocalDateTime.now() : consumedAt;
     }
 
     public void revoke() {
@@ -103,8 +151,11 @@ public class UserLink {
     @PrePersist
     private void initialize() {
         validatePatient(patient);
-        validateLinkedUser(linkedUser, linkType);
-        validateLinkType(linkType);
+        validateLinkAssignmentConsistency();
+        if (linkedUser != null) {
+            this.linkedUser = validateLinkedUser(linkedUser, linkType);
+            this.linkType = validateLinkType(linkType);
+        }
         if (token == null) {
             generateToken();
         }
@@ -124,10 +175,6 @@ public class UserLink {
         if (linkedUser == null) {
             throw new IllegalArgumentException("Linked user is required");
         }
-        if (linkType == null) {
-            return linkedUser;
-        }
-
         RoleEnum expectedRole = switch (linkType) {
             case CAREGIVER -> RoleEnum.CAREGIVER;
             case DOCTOR -> RoleEnum.DOCTOR;
@@ -145,5 +192,41 @@ public class UserLink {
             throw new IllegalArgumentException("Link type is required");
         }
         return linkType;
+    }
+
+    private void validateLinkAssignmentConsistency() {
+        if ((linkedUser == null && linkType != null) || (linkedUser != null && linkType == null)) {
+            throw new IllegalStateException("Linked user and link type must be defined together");
+        }
+    }
+
+    private LinkTypeEnum resolveLinkType(User linkedUser) {
+        if (linkedUser == null) {
+            throw new IllegalArgumentException("Linked user is required");
+        }
+
+        return switch (linkedUser.getRole()) {
+            case CAREGIVER -> LinkTypeEnum.CAREGIVER;
+            case DOCTOR -> LinkTypeEnum.DOCTOR;
+            default -> throw new IllegalArgumentException("Only caregivers and doctors can link to a patient");
+        };
+    }
+
+    private LocalDateTime normalizeExpiration(LocalDateTime expiresAt) {
+        if (expiresAt == null) {
+            throw new IllegalArgumentException("Token expiration is required");
+        }
+        if (!expiresAt.isAfter(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Token expiration must be in the future");
+        }
+        return expiresAt;
+    }
+
+    private boolean isExpired(LocalDateTime referenceTime) {
+        if (expiresAt == null) {
+            return false;
+        }
+        LocalDateTime effectiveReference = referenceTime == null ? LocalDateTime.now() : referenceTime;
+        return !expiresAt.isAfter(effectiveReference);
     }
 }
