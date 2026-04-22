@@ -39,6 +39,7 @@ public class SecurityConfig {
                 .httpBasic(basic -> basic.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/internal/**").permitAll()
                         .requestMatchers("/", "/auth/**", "/health", "/actuator/health", "/error", "/ws/**").permitAll()
                         .anyRequest().authenticated()
                 )

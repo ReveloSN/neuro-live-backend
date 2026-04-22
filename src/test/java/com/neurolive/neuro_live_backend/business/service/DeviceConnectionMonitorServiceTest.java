@@ -9,6 +9,7 @@ import com.neurolive.neuro_live_backend.business.patterns.PatientStateUpdate;
 import com.neurolive.neuro_live_backend.business.patterns.UIIntervention;
 import com.neurolive.neuro_live_backend.domain.biometric.Device;
 import com.neurolive.neuro_live_backend.infrastructure.config.TelemetryMonitoringProperties;
+import com.neurolive.neuro_live_backend.repository.DeviceRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -32,6 +33,9 @@ class DeviceConnectionMonitorServiceTest {
 
     @Mock
     private DeviceService deviceService;
+
+    @Mock
+    private DeviceRepository deviceRepository;
 
     @Test
     void shouldKeepDeviceConnectedWhenHeartbeatIsRecent() {
@@ -164,7 +168,8 @@ class DeviceConnectionMonitorServiceTest {
                         ),
                         List.of(observer)
                 ),
-                properties
+                properties,
+                deviceRepository
         );
     }
 
