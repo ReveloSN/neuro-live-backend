@@ -14,7 +14,7 @@ import com.neurolive.neuro_live_backend.domain.biometric.BiometricData;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricTelemetrySample;
 import com.neurolive.neuro_live_backend.domain.biometric.Device;
 import com.neurolive.neuro_live_backend.domain.crisis.EmotionalState;
-import com.neurolive.neuro_live_backend.infrastructure.mqtt.TelemetryPayload;
+import com.neurolive.neuro_live_backend.presentation.dto.TelemetryPayload;
 import com.neurolive.neuro_live_backend.repository.BiometricTelemetrySampleRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

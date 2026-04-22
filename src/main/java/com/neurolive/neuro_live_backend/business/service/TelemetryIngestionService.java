@@ -6,7 +6,7 @@ import com.neurolive.neuro_live_backend.domain.biometric.BaseLine;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricData;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricTelemetrySample;
 import com.neurolive.neuro_live_backend.domain.biometric.Device;
-import com.neurolive.neuro_live_backend.infrastructure.mqtt.TelemetryPayload;
+import com.neurolive.neuro_live_backend.presentation.dto.TelemetryPayload;
 import com.neurolive.neuro_live_backend.repository.BiometricTelemetrySampleRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
@@ -20,7 +20,7 @@ import java.util.Objects;
 
 @Service
 @Transactional
-// Procesa la telemetria recibida desde MQTT
+// Procesa la telemetria recibida desde el gateway realtime.
 public class TelemetryIngestionService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TelemetryIngestionService.class);

@@ -5,7 +5,7 @@ import com.neurolive.neuro_live_backend.domain.biometric.DeviceCommand;
 import com.neurolive.neuro_live_backend.domain.user.Caregiver;
 import com.neurolive.neuro_live_backend.domain.user.Patient;
 import com.neurolive.neuro_live_backend.domain.user.User;
-import com.neurolive.neuro_live_backend.infrastructure.mqtt.DeviceCommandPublisher;
+import com.neurolive.neuro_live_backend.infrastructure.integration.DeviceCommandPublisher;
 import com.neurolive.neuro_live_backend.repository.DeviceRepository;
 import com.neurolive.neuro_live_backend.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;

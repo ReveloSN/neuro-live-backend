@@ -1,6 +1,6 @@
 package com.neurolive.neuro_live_backend.presentation.dto;
 
-import com.neurolive.neuro_live_backend.infrastructure.mqtt.TelemetryPayload;
+import com.neurolive.neuro_live_backend.presentation.dto.TelemetryPayload;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -16,7 +16,7 @@ public record BiometricDataDTO(
         Boolean sensorContact
 ) {
 
-    // Convierte el DTO REST al mismo payload que usa la ingesta MQTT para no duplicar validaciones.
+    // Convierte el DTO REST al mismo payload que usa la ingesta interna.
     public TelemetryPayload toPayload() {
         return new TelemetryPayload(patientId, deviceMac, bpm, spo2, observedAt, sensorContact);
     }
