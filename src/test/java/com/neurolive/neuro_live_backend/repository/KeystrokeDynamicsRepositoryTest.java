@@ -1,5 +1,6 @@
 package com.neurolive.neuro_live_backend.repository;
 
+import com.neurolive.neuro_live_backend.NeuroLiveBackendApplication;
 import com.neurolive.neuro_live_backend.domain.analysis.KeystrokeDynamics;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,7 +13,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-@SpringBootTest
+@SpringBootTest(classes = NeuroLiveBackendApplication.class)
 @Transactional
 // Verifica la persistencia de la dinamica de tecleo.
 class KeystrokeDynamicsRepositoryTest {
