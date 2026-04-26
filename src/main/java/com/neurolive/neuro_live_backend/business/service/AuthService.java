@@ -33,7 +33,7 @@ public class AuthService {
         String normalizedEmail = normalizeEmail(request.getEmail());
 
         if (userRepository.existsByEmail(normalizedEmail)) {
-            throw new IllegalArgumentException("Email already registered");
+            throw new IllegalStateException("Email already registered");
         }
 
         User user = User.createForRole(request.getRole());
