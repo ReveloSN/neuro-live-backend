@@ -40,7 +40,17 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/internal/**").permitAll()
-                        .requestMatchers("/", "/auth/**", "/health", "/actuator/health", "/error", "/ws/**").permitAll()
+                        .requestMatchers(
+                                "/",
+                                "/auth/**",
+                                "/health",
+                                "/actuator/health",
+                                "/error",
+                                "/ws/**",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
