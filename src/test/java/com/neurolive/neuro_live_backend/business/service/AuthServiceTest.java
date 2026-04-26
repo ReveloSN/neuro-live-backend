@@ -94,6 +94,24 @@ class AuthServiceTest {
     }
 
     @Test
+    void registerShouldRaiseConflictWhenEmailAlreadyExists() {
+        RegisterRequest request = new RegisterRequest();
+        request.setName("Patient One");
+        request.setEmail("patient@neurolive.test");
+        request.setPassword("plain-secret");
+        request.setRole(RoleEnum.PATIENT);
+
+        when(userRepository.existsByEmail("patient@neurolive.test")).thenReturn(true);
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> authService.register(request)
+        );
+
+        assertEquals("Email already registered", exception.getMessage());
+    }
+
+    @Test
     void loginShouldReturnTokenWhenCredentialsAreValid() {
         LoginRequest request = new LoginRequest();
         request.setEmail("patient@neurolive.test");
