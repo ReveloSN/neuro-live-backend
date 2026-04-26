@@ -62,7 +62,7 @@ public class AuthService {
 
         String token = user.authenticate(
                 request.getPassword(),
-                rawPassword -> passwordEncoder.matches(rawPassword, user.getPasswordHash()),
+                rawPassword -> matchesPassword(user, rawPassword),
                 () -> jwtService.generateToken(user)
         );
 
@@ -82,5 +82,31 @@ public class AuthService {
         }
 
         return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private boolean matchesPassword(User user, String rawPassword) {
+        String storedPasswordHash = user.getPasswordHash();
+
+        if (storedPasswordHash == null || storedPasswordHash.isBlank()) {
+            return false;
+        }
+
+        if (looksLikeBcryptHash(storedPasswordHash)) {
+            return passwordEncoder.matches(rawPassword, storedPasswordHash);
+        }
+
+        if (!storedPasswordHash.equals(rawPassword)) {
+            return false;
+        }
+
+        user.recoverAccount(passwordEncoder.encode(rawPassword));
+        userRepository.save(user);
+        return true;
+    }
+
+    private boolean looksLikeBcryptHash(String storedPasswordHash) {
+        return storedPasswordHash.startsWith("$2a$")
+                || storedPasswordHash.startsWith("$2b$")
+                || storedPasswordHash.startsWith("$2y$");
     }
 }
