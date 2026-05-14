@@ -101,7 +101,22 @@ public class InternalController {
         Float spo2 = body.get("spo2") != null ? ((Number) body.get("spo2")).floatValue() : null;
         Boolean sensorContact = body.get("sensorConnected") instanceof Boolean sensorConnected ? sensorConnected : null;
         LocalDateTime observedAt = resolveObservedAt(body);
-        return new TelemetryPayload(patientId, deviceMac, bpm, spo2, observedAt, sensorContact);
+        String predictionState = body.get("predictionState") instanceof String value ? value : null;
+        Float predictionConfidence = body.get("predictionConfidence") instanceof Number value
+                ? value.floatValue()
+                : null;
+        String predictionReasoning = body.get("predictionReasoning") instanceof String value ? value : null;
+        return new TelemetryPayload(
+                patientId,
+                deviceMac,
+                bpm,
+                spo2,
+                observedAt,
+                sensorContact,
+                predictionState,
+                predictionConfidence,
+                predictionReasoning
+        );
     }
 
     // Resuelve el paciente vinculado a partir del MAC del dispositivo.
@@ -126,4 +141,3 @@ public class InternalController {
         return LocalDateTime.now();
     }
 }
-
