@@ -154,6 +154,44 @@ class TelemetryIngestionServiceTest {
     }
 
     @Test
+    void shouldElevateAssessmentWithPredictiveSignal() {
+        TelemetryPayload payload = new TelemetryPayload(
+                830L,
+                "AA:BB:CC:DD:EE:83",
+                88.0f,
+                97.0f,
+                LocalDateTime.of(2026, 4, 2, 10, 12),
+                Boolean.TRUE,
+                "PRE_CRISIS",
+                0.82f,
+                "Predictive trend is escalating"
+        );
+        Device device = buildDevice(830L, payload.deviceMac());
+        BaseLine baseLine = buildReadyBaseLine(830L, 80.0f, 98.0f);
+        BiometricTelemetrySample storedSample = BiometricTelemetrySample.from(payload.patientId(), payload.deviceMac(), toDomain(payload));
+
+        when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
+        when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
+        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), Boolean.TRUE)).thenReturn(device);
+        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
+        when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
+        when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
+        when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
+                new RiskAssessmentService.AssessmentSnapshot(null, null, null, null, StateEnum.NORMAL, "stable", "stable")
+        );
+        when(crisisMediator.mediate(any())).thenReturn(CrisisMediator.CrisisMediationResult.withoutCrisis(
+                EmotionalState.from(StateEnum.ACTIVE_CRISIS)
+        ));
+
+        telemetryIngestionService.ingest(payload);
+
+        ArgumentCaptor<CrisisMediator.CrisisEvaluationInput> inputCaptor =
+                ArgumentCaptor.forClass(CrisisMediator.CrisisEvaluationInput.class);
+        verify(crisisMediator).mediate(inputCaptor.capture());
+        assertEquals(StateEnum.ACTIVE_CRISIS, inputCaptor.getValue().analysisStateHint());
+    }
+
+    @Test
     void shouldStillPersistDataWhenBaselineIsNotReady() {
         TelemetryPayload payload = buildPayload(84L, "AA:BB:CC:DD:EE:44", 84.0f, 98.0f, LocalDateTime.of(2026, 4, 2, 10, 15));
         Device device = buildDevice(84L, payload.deviceMac());

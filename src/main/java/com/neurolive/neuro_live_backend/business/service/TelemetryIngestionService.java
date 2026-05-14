@@ -2,6 +2,7 @@ package com.neurolive.neuro_live_backend.business.service;
 
 import com.neurolive.neuro_live_backend.business.patterns.CrisisMediator;
 import com.neurolive.neuro_live_backend.business.patterns.PatientStateUpdate;
+import com.neurolive.neuro_live_backend.data.enums.StateEnum;
 import com.neurolive.neuro_live_backend.domain.biometric.BaseLine;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricData;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricTelemetrySample;
@@ -105,6 +106,19 @@ public class TelemetryIngestionService {
         var activationThreshold = activationThresholdService.resolveForPatient(patientId);
         RiskAssessmentService.AssessmentSnapshot assessmentSnapshot =
                 riskAssessmentService.assess(patientId, biometricData, baseLine);
+        StateEnum predictiveState = mapPredictiveState(payload.predictionState());
+        StateEnum combinedState = maxSeverity(assessmentSnapshot.inferredState(), predictiveState);
+        if (severityOf(combinedState) > severityOf(assessmentSnapshot.inferredState())) {
+            LOGGER.info(
+                    "AI prediction elevated patient state patientId={} deviceMac={} predictionState={} confidence={} reactiveState={} finalState={}",
+                    patientId,
+                    device.getMacAddress(),
+                    payload.predictionState(),
+                    payload.predictionConfidence(),
+                    assessmentSnapshot.inferredState(),
+                    combinedState
+            );
+        }
 
         CrisisMediator.CrisisMediationResult crisisMediationResult = null;
         if (baseLine.isReady() || hasUsableThreshold(activationThreshold)) {
@@ -118,7 +132,7 @@ public class TelemetryIngestionService {
                             assessmentSnapshot.dwellTime(),
                             assessmentSnapshot.flightTime(),
                             assessmentSnapshot.errorCount(),
-                            assessmentSnapshot.inferredState()));
+                            combinedState));
             if (crisisMediationResult.crisisDetected()) {
                 crisisOutcomePersistenceService.persist(crisisMediationResult);
                 deviceService.sendCommand(
@@ -206,6 +220,35 @@ public class TelemetryIngestionService {
             case LIGHT -> "LIGHT_INTERVENTION";
             case AUDIO -> "AUDIO_INTERVENTION";
             default -> "CALM_MODE";
+        };
+    }
+
+    // Mapea la prediccion externa al enum clinico actual.
+    private StateEnum mapPredictiveState(String predictionState) {
+        if (predictionState == null || predictionState.isBlank()) {
+            return StateEnum.NORMAL;
+        }
+        return switch (predictionState.trim().toUpperCase(java.util.Locale.ROOT)) {
+            case "PRE_CRISIS" -> StateEnum.ACTIVE_CRISIS;
+            case "WARNING" -> StateEnum.RISK_ELEVATED;
+            case "STABLE", "INSUFFICIENT_DATA" -> StateEnum.NORMAL;
+            default -> StateEnum.NORMAL;
+        };
+    }
+
+    // Conserva la mayor severidad entre senales reactivas y predictivas.
+    private StateEnum maxSeverity(StateEnum left, StateEnum right) {
+        return severityOf(right) > severityOf(left) ? right : left;
+    }
+
+    private int severityOf(StateEnum state) {
+        if (state == null) {
+            return 0;
+        }
+        return switch (state) {
+            case NORMAL -> 0;
+            case RISK_ELEVATED -> 1;
+            case ACTIVE_CRISIS -> 2;
         };
     }
 
