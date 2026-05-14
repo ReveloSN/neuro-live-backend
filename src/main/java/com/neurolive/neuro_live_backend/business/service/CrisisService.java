@@ -4,9 +4,11 @@ import com.neurolive.neuro_live_backend.data.enums.StateEnum;
 import com.neurolive.neuro_live_backend.data.enums.TypeEnum;
 import com.neurolive.neuro_live_backend.data.exception.CrisisNotFoundException;
 import com.neurolive.neuro_live_backend.domain.biometric.BaseLine;
+import com.neurolive.neuro_live_backend.domain.biometric.BiometricTelemetrySample;
 import com.neurolive.neuro_live_backend.domain.crisis.CrisisEvent;
 import com.neurolive.neuro_live_backend.domain.crisis.SAMResponse;
 import com.neurolive.neuro_live_backend.domain.user.User;
+import com.neurolive.neuro_live_backend.repository.BiometricTelemetrySampleRepository;
 import com.neurolive.neuro_live_backend.repository.CrisisEventRepository;
 import com.neurolive.neuro_live_backend.repository.SAMResponseRepository;
 import org.springframework.stereotype.Service;
@@ -29,17 +31,23 @@ public class CrisisService {
     private final ClinicalAccessService clinicalAccessService;
     private final AuditLogService auditLogService;
     private final BaseLineService baseLineService;
+    private final BiometricTelemetrySampleRepository biometricTelemetrySampleRepository;
+    private final ClinicalInsightService clinicalInsightService;
 
     public CrisisService(CrisisEventRepository crisisEventRepository,
                          SAMResponseRepository samResponseRepository,
                          ClinicalAccessService clinicalAccessService,
                          AuditLogService auditLogService,
-                         BaseLineService baseLineService) {
+                         BaseLineService baseLineService,
+                         BiometricTelemetrySampleRepository biometricTelemetrySampleRepository,
+                         ClinicalInsightService clinicalInsightService) {
         this.crisisEventRepository = crisisEventRepository;
         this.samResponseRepository = samResponseRepository;
         this.clinicalAccessService = clinicalAccessService;
         this.auditLogService = auditLogService;
         this.baseLineService = baseLineService;
+        this.biometricTelemetrySampleRepository = biometricTelemetrySampleRepository;
+        this.clinicalInsightService = clinicalInsightService;
     }
 
     @Transactional(readOnly = true)
@@ -74,7 +82,8 @@ public class CrisisService {
         CrisisEvent crisisEvent = getCrisisOrThrow(crisisId);
         User requester = clinicalAccessService.requirePatientAccess(requesterEmail, crisisEvent.getPatientId());
 
-        if (crisisEvent.isActive()) {
+        boolean wasActive = crisisEvent.isActive();
+        if (wasActive) {
             crisisEvent.close(
                     endedAt == null ? LocalDateTime.now() : endedAt,
                     finalState == null ? StateEnum.NORMAL : finalState,
@@ -83,7 +92,11 @@ public class CrisisService {
         }
 
         auditLogService.record(requester.getId(), "CLOSE_CRISIS_EVENT", crisisEvent.getPatientId(), ipOrigin);
-        return crisisEventRepository.save(crisisEvent);
+        CrisisEvent savedEvent = crisisEventRepository.save(crisisEvent);
+        if (wasActive) {
+            clinicalInsightService.generatePostCrisisSummaryAsync(savedEvent);
+        }
+        return savedEvent;
     }
 
     public SAMResponse recordSamResponse(String requesterEmail,
@@ -94,7 +107,8 @@ public class CrisisService {
         CrisisEvent crisisEvent = getCrisisOrThrow(crisisId);
         User requester = clinicalAccessService.requirePatientAccess(requesterEmail, crisisEvent.getPatientId());
 
-        if (crisisEvent.isActive()) {
+        boolean wasActive = crisisEvent.isActive();
+        if (wasActive) {
             crisisEvent.close(LocalDateTime.now(), StateEnum.NORMAL, resolveInterventionType(crisisEvent));
         }
 
@@ -102,6 +116,9 @@ public class CrisisService {
         crisisEvent.attachSamResponse(samResponse);
         CrisisEvent savedEvent = crisisEventRepository.save(crisisEvent);
         auditLogService.record(requester.getId(), "REGISTER_SAM_RESPONSE", crisisEvent.getPatientId(), ipOrigin);
+        if (wasActive) {
+            clinicalInsightService.generatePostCrisisSummaryAsync(savedEvent);
+        }
         return savedEvent.getSamResponse();
     }
 
@@ -200,6 +217,36 @@ public class CrisisService {
         return csvBuilder.toString();
     }
 
+    @Transactional(readOnly = true)
+    // Construye una narrativa clinica reciente sin exponer datos personales.
+    public ClinicalInsightSnapshot buildNarrativeInsight(String requesterEmail,
+                                                         Long patientId,
+                                                         Integer days,
+                                                         String ipOrigin) {
+        User requester = clinicalAccessService.requirePatientAccess(requesterEmail, patientId);
+        DateRange dateRange = normalizeInsightRange(days);
+        List<CrisisEvent> crisisEvents = crisisEventRepository.findAllByPatientIdAndStartedAtBetweenOrderByStartedAtDesc(
+                patientId,
+                dateRange.start(),
+                dateRange.end()
+        );
+        List<BiometricTelemetrySample> telemetrySamples = biometricTelemetrySampleRepository
+                .findAllByPatientIdOrderByObservedAtAsc(patientId)
+                .stream()
+                .filter(sample -> !sample.getObservedAt().isBefore(dateRange.start())
+                        && !sample.getObservedAt().isAfter(dateRange.end()))
+                .toList();
+        auditLogService.record(requester.getId(), "READ_CLINICAL_AI_INSIGHT", patientId, ipOrigin);
+        String insight = clinicalInsightService.generatePatientEvolutionInsight(
+                patientId,
+                crisisEvents,
+                telemetrySamples,
+                dateRange.start(),
+                dateRange.end()
+        );
+        return new ClinicalInsightSnapshot(patientId, dateRange.start(), dateRange.end(), insight);
+    }
+
     private CrisisEvent getCrisisOrThrow(Long crisisId) {
         if (crisisId == null || crisisId <= 0) {
             throw new IllegalArgumentException("Crisis identifier must be positive");
@@ -230,6 +277,13 @@ public class CrisisService {
         return new DateRange(effectiveStart, effectiveEnd);
     }
 
+    // Limita la ventana del insight para mantener la consulta simple.
+    private DateRange normalizeInsightRange(Integer days) {
+        int safeDays = days == null || days <= 0 ? 7 : Math.min(days, 30);
+        LocalDateTime end = LocalDateTime.now();
+        return new DateRange(end.minusDays(safeDays), end);
+    }
+
     public record ClinicalAnalysisSnapshot(
             Long patientId,
             long totalEvents,
@@ -240,6 +294,14 @@ public class CrisisService {
             Map<TypeEnum, Long> interventionCounts,
             Float baselineBpm,
             Float baselineSpo2
+    ) {
+    }
+
+    public record ClinicalInsightSnapshot(
+            Long patientId,
+            LocalDateTime start,
+            LocalDateTime end,
+            String insight
     ) {
     }
 
