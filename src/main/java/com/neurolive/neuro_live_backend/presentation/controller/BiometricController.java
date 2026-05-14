@@ -28,6 +28,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/biometrics")
 public class BiometricController {
@@ -139,6 +141,22 @@ public class BiometricController {
 
         monitoringConsentService.registerPatientConsent(patientId);
         return ResponseEntity.ok("Consent registered");
+    }
+
+    // Retorna el historial reciente de tecleo de un paciente para analisis clinico.
+    @GetMapping("/patients/{patientId}/keystrokes/recent")
+    public ResponseEntity<List<KeystrokeCaptureResponseDTO>> getRecentKeystrokes(
+            Authentication authentication,
+            @PathVariable Long patientId,
+            HttpServletRequest httpServletRequest) {
+        User requester = clinicalAccessService.requirePatientAccess(authentication.getName(), patientId);
+        auditLogService.record(requester.getId(), "READ_KEYSTROKES", patientId, resolveIp(httpServletRequest));
+        List<KeystrokeCaptureResponseDTO> result = keystrokeDynamicsService
+                .findRecentForUser(patientId, 20)
+                .stream()
+                .map(KeystrokeCaptureResponseDTO::from)
+                .toList();
+        return ResponseEntity.ok(result);
     }
 
     private String resolveIp(HttpServletRequest httpServletRequest) {
