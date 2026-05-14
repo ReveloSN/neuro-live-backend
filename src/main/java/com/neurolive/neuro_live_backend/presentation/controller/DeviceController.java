@@ -25,12 +25,13 @@ public class DeviceController {
         this.deviceService = deviceService;
     }
 
-    // Cierra RF05 reutilizando la regla de autorizacion clinica y el servicio de dispositivos.
+    // Cierra RF05 reutilizando la regla de autorizacion clinica y el servicio de
+    // dispositivos.
     @PostMapping("/patients/{patientId}/link")
     public ResponseEntity<DeviceResponseDTO> linkDevice(Authentication authentication,
-                                                        @PathVariable Long patientId,
-                                                        @Valid @RequestBody DeviceLinkRequestDTO request,
-                                                        HttpServletRequest httpServletRequest) {
+            @PathVariable Long patientId,
+            @Valid @RequestBody DeviceLinkRequestDTO request,
+            HttpServletRequest httpServletRequest) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 DeviceResponseDTO.from(
                         deviceService.linkDevice(
@@ -38,10 +39,7 @@ public class DeviceController {
                                 patientId,
                                 request.deviceMac(),
                                 request.fallBackConfig(),
-                                resolveIp(httpServletRequest)
-                        )
-                )
-        );
+                                resolveIp(httpServletRequest))));
     }
 
     private String resolveIp(HttpServletRequest httpServletRequest) {
