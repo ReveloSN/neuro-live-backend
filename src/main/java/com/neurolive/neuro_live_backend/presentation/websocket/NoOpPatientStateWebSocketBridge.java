@@ -5,10 +5,12 @@ import com.neurolive.neuro_live_backend.business.patterns.PatientStateUpdate;
 @Deprecated
 public class NoOpPatientStateWebSocketBridge implements PatientStateWebSocketBridge {
 
+    @Deprecated
     @Override
     public void sendToCaregiverDashboard(PatientStateUpdate update) {
     }
 
+    @Deprecated
     @Override
     public void sendToDoctorDashboard(PatientStateUpdate update) {
     }
