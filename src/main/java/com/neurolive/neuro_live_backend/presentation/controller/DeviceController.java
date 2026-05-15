@@ -39,6 +39,7 @@ public class DeviceController {
                                 patientId,
                                 request.deviceMac(),
                                 request.fallBackConfig(),
+                                request.deviceToken(),
                                 resolveIp(httpServletRequest))));
     }
 
