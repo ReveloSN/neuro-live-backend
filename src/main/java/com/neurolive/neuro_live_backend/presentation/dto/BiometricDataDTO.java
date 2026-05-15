@@ -13,11 +13,15 @@ public record BiometricDataDTO(
         @NotNull @Positive Float bpm,
         @NotNull @Positive Float spo2,
         @NotNull LocalDateTime observedAt,
-        Boolean sensorContact
+        Boolean sensorContact,
+        String predictionState,
+        Float predictionConfidence,
+        String predictionReasoning
 ) {
 
     // Convierte el DTO REST al mismo payload que usa la ingesta interna.
     public TelemetryPayload toPayload() {
-        return new TelemetryPayload(patientId, deviceMac, bpm, spo2, observedAt, sensorContact);
+        return new TelemetryPayload(patientId, deviceMac, bpm, spo2, observedAt, sensorContact,
+                predictionState, predictionConfidence, predictionReasoning);
     }
 }
