@@ -1,6 +1,5 @@
 package com.neurolive.neuro_live_backend.presentation.dto;
 
-import com.neurolive.neuro_live_backend.presentation.dto.TelemetryPayload;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
