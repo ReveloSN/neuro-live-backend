@@ -64,7 +64,11 @@ class CrisisServiceTest {
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)
         )).thenReturn(List.of());
-        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(44L)).thenReturn(List.of(sample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(
+                eq(44L),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class)
+        )).thenReturn(List.of(sample));
         when(clinicalInsightService.generatePatientEvolutionInsight(
                 eq(44L),
                 eq(List.of()),
@@ -93,6 +97,41 @@ class CrisisServiceTest {
                 any(LocalDateTime.class)
         );
         assertThat(telemetryCaptor.getValue()).containsExactly(sample);
+    }
+
+    @Test
+    void shouldReturnFallbackInsightFromServiceForEndpointWhenGeminiIsDisabled() {
+        Doctor doctor = new Doctor();
+        doctor.register("Doctor Fallback", "doctor.fallback@neurolive.test", "encoded-secret");
+        setId(doctor, 702L);
+        when(clinicalAccessService.requirePatientAccess("doctor.fallback@neurolive.test", 45L)).thenReturn(doctor);
+        when(crisisEventRepository.findAllByPatientIdAndStartedAtBetweenOrderByStartedAtDesc(
+                eq(45L),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class)
+        )).thenReturn(List.of());
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(
+                eq(45L),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class)
+        )).thenReturn(List.of());
+        when(clinicalInsightService.generatePatientEvolutionInsight(
+                eq(45L),
+                eq(List.of()),
+                eq(List.of()),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class)
+        )).thenReturn("Insight narrativo no generado por IA.");
+
+        CrisisService.ClinicalInsightSnapshot snapshot = crisisService.buildNarrativeInsight(
+                "doctor.fallback@neurolive.test",
+                45L,
+                7,
+                "127.0.0.1"
+        );
+
+        assertThat(snapshot.insight()).contains("Insight narrativo no generado por IA");
+        verify(auditLogService).record(702L, "READ_CLINICAL_AI_INSIGHT", 45L, "127.0.0.1");
     }
 
     // Asigna IDs a entidades del dominio usadas en auditoria.
