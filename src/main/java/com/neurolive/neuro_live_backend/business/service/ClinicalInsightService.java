@@ -170,7 +170,6 @@ public class ClinicalInsightService {
     }
 
     // Extrae texto de la respuesta generativa.
-    @SuppressWarnings("unchecked")
     private String extractText(Map<String, Object> response) {
         if (response == null) {
             return null;
