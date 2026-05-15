@@ -16,4 +16,9 @@ public interface BiometricTelemetrySampleRepository extends JpaRepository<Biomet
             LocalDateTime start,
             LocalDateTime end
     );
+
+    org.springframework.data.domain.Page<BiometricTelemetrySample> findAllByPatientIdOrderByObservedAtDesc(
+            Long patientId,
+            org.springframework.data.domain.Pageable pageable
+    );
 }
