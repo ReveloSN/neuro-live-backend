@@ -1,7 +1,6 @@
 package com.neurolive.neuro_live_backend.business.service;
 
 import com.neurolive.neuro_live_backend.data.enums.LinkTypeEnum;
-import com.neurolive.neuro_live_backend.data.enums.RoleEnum;
 import com.neurolive.neuro_live_backend.data.enums.StatusEnum;
 import com.neurolive.neuro_live_backend.data.exception.UnauthorizedAccessException;
 import com.neurolive.neuro_live_backend.domain.user.Caregiver;
@@ -15,7 +14,6 @@ import com.neurolive.neuro_live_backend.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -29,9 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
