@@ -25,6 +25,11 @@ import java.util.Objects;
 public class TelemetryIngestionService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TelemetryIngestionService.class);
+    private static final float MIN_BPM = 30.0f;
+    private static final float MAX_BPM = 220.0f;
+    private static final float MIN_SPO2 = 50.0f;
+    private static final float MAX_SPO2 = 100.0f;
+    private static final int MAX_PREDICTION_REASONING_LENGTH = 512;
 
     private final BiometricTelemetrySampleRepository biometricTelemetrySampleRepository;
     private final DeviceService deviceService;
@@ -62,9 +67,12 @@ public class TelemetryIngestionService {
         Long patientId = validatePatientId(payload.patientId());
         monitoringConsentService.assertMonitoringAllowed(patientId);
         BiometricData biometricData = new BiometricData(
-                requireMetric(payload.bpm(), "Telemetry BPM"),
-                requireMetric(payload.spo2(), "Telemetry SpO2"),
+                requireBpm(payload.bpm()),
+                requireSpo2(payload.spo2()),
                 requireObservedAt(payload.observedAt()));
+        String predictionState = normalizePredictionState(payload.predictionState());
+        Float predictionConfidence = clampPredictionConfidence(payload.predictionConfidence());
+        String predictionReasoning = normalizePredictionReasoning(payload.predictionReasoning());
 
         Device device = validateLinkedDevice(patientId, payload.deviceMac());
         boolean wasConnected = Boolean.TRUE.equals(device.getIsConnected());
@@ -81,7 +89,14 @@ public class TelemetryIngestionService {
                 payload.sensorContact()
         );
         BiometricTelemetrySample storedSample = biometricTelemetrySampleRepository.save(
-                BiometricTelemetrySample.from(patientId, device.getMacAddress(), biometricData));
+                BiometricTelemetrySample.from(
+                        patientId,
+                        device.getMacAddress(),
+                        biometricData,
+                        predictionState,
+                        predictionConfidence,
+                        predictionReasoning
+                ));
         LOGGER.debug(
                 "Saved telemetry sample id={} patientId={} deviceMac={} observedAt={}",
                 storedSample.getId(),
@@ -106,15 +121,15 @@ public class TelemetryIngestionService {
         var activationThreshold = activationThresholdService.resolveForPatient(patientId);
         RiskAssessmentService.AssessmentSnapshot assessmentSnapshot =
                 riskAssessmentService.assess(patientId, biometricData, baseLine);
-        StateEnum predictiveState = mapPredictiveState(payload.predictionState());
+        StateEnum predictiveState = mapPredictiveState(predictionState);
         StateEnum combinedState = maxSeverity(assessmentSnapshot.inferredState(), predictiveState);
         if (severityOf(combinedState) > severityOf(assessmentSnapshot.inferredState())) {
             LOGGER.info(
                     "AI prediction elevated patient state patientId={} deviceMac={} predictionState={} confidence={} reactiveState={} finalState={}",
                     patientId,
                     device.getMacAddress(),
-                    payload.predictionState(),
-                    payload.predictionConfidence(),
+                    predictionState,
+                    predictionConfidence,
                     assessmentSnapshot.inferredState(),
                     combinedState
             );
@@ -135,11 +150,7 @@ public class TelemetryIngestionService {
                             combinedState));
             if (crisisMediationResult.crisisDetected()) {
                 crisisOutcomePersistenceService.persist(crisisMediationResult);
-                deviceService.sendCommand(
-                        updatedDevice.getId(),
-                        buildCommand(crisisMediationResult.interventionProtocol()),
-                        LocalDateTime.now()
-                );
+                trySendInterventionCommand(updatedDevice, crisisMediationResult);
             }
         }
 
@@ -223,12 +234,30 @@ public class TelemetryIngestionService {
         };
     }
 
+    // Intenta enviar el comando sin deshacer la persistencia clinica.
+    private void trySendInterventionCommand(Device updatedDevice,
+                                            CrisisMediator.CrisisMediationResult crisisMediationResult) {
+        try {
+            deviceService.sendCommand(
+                    updatedDevice.getId(),
+                    buildCommand(crisisMediationResult.interventionProtocol()),
+                    LocalDateTime.now()
+            );
+        } catch (RuntimeException exception) {
+            LOGGER.warn(
+                    "Command delivery failed but telemetry and crisis persistence continue deviceId={} reason={}",
+                    updatedDevice.getMacAddress(),
+                    exception.getMessage()
+            );
+        }
+    }
+
     // Mapea la prediccion externa al enum clinico actual.
     private StateEnum mapPredictiveState(String predictionState) {
         if (predictionState == null || predictionState.isBlank()) {
             return StateEnum.NORMAL;
         }
-        return switch (predictionState.trim().toUpperCase(java.util.Locale.ROOT)) {
+        return switch (predictionState) {
             case "PRE_CRISIS" -> StateEnum.ACTIVE_CRISIS;
             case "WARNING" -> StateEnum.RISK_ELEVATED;
             case "STABLE", "INSUFFICIENT_DATA" -> StateEnum.NORMAL;
@@ -259,9 +288,23 @@ public class TelemetryIngestionService {
         return patientId;
     }
 
-    private float requireMetric(Float value, String fieldName) {
-        if (value == null || !Float.isFinite(value) || value < 0.0f) {
-            throw new IllegalArgumentException(fieldName + " must be a finite non-negative value");
+    private float requireBpm(Float value) {
+        return requireMetricInRange(value, "Telemetry BPM", MIN_BPM, MAX_BPM);
+    }
+
+    private float requireSpo2(Float value) {
+        return requireMetricInRange(value, "Telemetry SpO2", MIN_SPO2, MAX_SPO2);
+    }
+
+    private float requireMetricInRange(Float value, String fieldName, float min, float max) {
+        if (value == null || !Float.isFinite(value)) {
+            throw new IllegalArgumentException(fieldName + " must be finite");
+        }
+        if (value < min || value > max) {
+            throw new IllegalArgumentException(fieldName + " must be between "
+                    + (int) min
+                    + " and "
+                    + (int) max);
         }
         return value;
     }
@@ -271,5 +314,39 @@ public class TelemetryIngestionService {
             throw new IllegalArgumentException("Telemetry observed time is required");
         }
         return observedAt;
+    }
+
+    private String normalizePredictionState(String predictionState) {
+        if (predictionState == null || predictionState.isBlank()) {
+            return null;
+        }
+        String normalized = predictionState.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!java.util.Set.of("STABLE", "WARNING", "PRE_CRISIS", "INSUFFICIENT_DATA").contains(normalized)) {
+            throw new IllegalArgumentException("Prediction state is not supported");
+        }
+        return normalized;
+    }
+
+    private Float clampPredictionConfidence(Float predictionConfidence) {
+        if (predictionConfidence == null) {
+            return null;
+        }
+        if (!Float.isFinite(predictionConfidence)) {
+            throw new IllegalArgumentException("Prediction confidence must be finite");
+        }
+        return Math.max(0.0f, Math.min(1.0f, predictionConfidence));
+    }
+
+    private String normalizePredictionReasoning(String predictionReasoning) {
+        if (predictionReasoning == null) {
+            return null;
+        }
+        String normalized = predictionReasoning.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        return normalized.length() <= MAX_PREDICTION_REASONING_LENGTH
+                ? normalized
+                : normalized.substring(0, MAX_PREDICTION_REASONING_LENGTH);
     }
 }
