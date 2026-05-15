@@ -1,5 +1,6 @@
 package com.neurolive.neuro_live_backend.presentation.controller;
 
+import com.neurolive.neuro_live_backend.business.service.ClinicalAccessService;
 import com.neurolive.neuro_live_backend.business.service.DeviceService;
 import com.neurolive.neuro_live_backend.presentation.dto.DeviceLinkRequestDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.DeviceProvisioningResponseDTO;
@@ -25,9 +26,11 @@ import java.util.List;
 public class DeviceController {
 
     private final DeviceService deviceService;
+    private final ClinicalAccessService clinicalAccessService;
 
-    public DeviceController(DeviceService deviceService) {
+    public DeviceController(DeviceService deviceService, ClinicalAccessService clinicalAccessService) {
         this.deviceService = deviceService;
+        this.clinicalAccessService = clinicalAccessService;
     }
 
     // Vincula un nuevo ESP32 al paciente. El token de aprovisionamiento se expone solo aqui.
@@ -51,6 +54,7 @@ public class DeviceController {
     @GetMapping("/patients/{patientId}")
     public ResponseEntity<List<DeviceResponseDTO>> listDevices(Authentication authentication,
             @PathVariable Long patientId) {
+        clinicalAccessService.requireDeviceManagementAccess(authentication.getName(), patientId);
         List<DeviceResponseDTO> devices = deviceService.findByPatientId(patientId).stream()
                 .map(DeviceResponseDTO::from)
                 .toList();
@@ -62,6 +66,7 @@ public class DeviceController {
     public ResponseEntity<DeviceResponseDTO> getDeviceStatus(Authentication authentication,
             @PathVariable Long patientId,
             @PathVariable String mac) {
+        clinicalAccessService.requireDeviceManagementAccess(authentication.getName(), patientId);
         return ResponseEntity.ok(DeviceResponseDTO.from(deviceService.findByMacAddress(mac)));
     }
 
