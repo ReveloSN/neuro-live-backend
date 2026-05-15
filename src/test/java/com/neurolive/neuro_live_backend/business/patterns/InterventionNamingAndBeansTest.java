@@ -21,6 +21,7 @@ class InterventionNamingAndBeansTest {
     private ApplicationContext applicationContext;
 
     @Test
+    @SuppressWarnings("deprecation")
     void shouldRegisterOnlyTheRenamedInterventionBeansInPriorityOrder() {
         assertEquals(4, interventionStrategies.size());
         assertEquals(1, applicationContext.getBeanNamesForType(UIIntervention.class).length);
