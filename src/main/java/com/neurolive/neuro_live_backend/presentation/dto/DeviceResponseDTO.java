@@ -13,7 +13,8 @@ public record DeviceResponseDTO(
         LocalDateTime linkedAt,
         LocalDateTime lastConnection,
         Boolean sensorContact,
-        String fallBackConfig
+        String fallBackConfig,
+        String deviceToken
 ) {
 
     // Evita exponer la entidad JPA completa y deja listo el payload para frontend.
@@ -26,7 +27,8 @@ public record DeviceResponseDTO(
                 device.getLinkedAt(),
                 device.getLastConnection(),
                 device.getSensorContact(),
-                device.getFallBackConfig()
+                device.getFallBackConfig(),
+                device.getProvisioningToken()
         );
     }
 }
