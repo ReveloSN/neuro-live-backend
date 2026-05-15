@@ -12,7 +12,6 @@ import com.neurolive.neuro_live_backend.business.service.TelemetryIngestionResul
 import com.neurolive.neuro_live_backend.business.service.TelemetryIngestionService;
 import com.neurolive.neuro_live_backend.domain.biometric.Device;
 import com.neurolive.neuro_live_backend.presentation.dto.TelemetryPayload;
-import java.time.LocalDateTime;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
