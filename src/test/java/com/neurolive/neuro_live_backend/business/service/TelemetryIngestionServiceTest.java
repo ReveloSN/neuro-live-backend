@@ -30,11 +30,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -192,6 +194,46 @@ class TelemetryIngestionServiceTest {
     }
 
     @Test
+    void shouldPersistPredictionFieldsWithTelemetrySample() {
+        TelemetryPayload payload = new TelemetryPayload(
+                831L,
+                "AA:BB:CC:DD:EE:86",
+                91.0f,
+                96.0f,
+                LocalDateTime.of(2026, 4, 2, 10, 13),
+                Boolean.TRUE,
+                "warning",
+                1.4f,
+                "x".repeat(700)
+        );
+        Device device = buildDevice(831L, payload.deviceMac());
+        BaseLine baseLine = buildReadyBaseLine(831L, 80.0f, 98.0f);
+
+        when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
+        when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), Boolean.TRUE)).thenReturn(device);
+        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(
+                BiometricTelemetrySample.from(payload.patientId(), payload.deviceMac(), toDomain(payload), "WARNING", 1.0f, "x".repeat(512))
+        ));
+        when(baseLineService.updateFromTelemetry(any(), any())).thenReturn(baseLine);
+        when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
+        when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
+                new RiskAssessmentService.AssessmentSnapshot(null, null, null, null, StateEnum.NORMAL, "stable", "stable")
+        );
+        when(crisisMediator.mediate(any())).thenReturn(CrisisMediator.CrisisMediationResult.withoutCrisis(
+                EmotionalState.from(StateEnum.RISK_ELEVATED)
+        ));
+
+        telemetryIngestionService.ingest(payload);
+
+        ArgumentCaptor<BiometricTelemetrySample> sampleCaptor = ArgumentCaptor.forClass(BiometricTelemetrySample.class);
+        verify(biometricTelemetrySampleRepository).save(sampleCaptor.capture());
+        assertEquals("WARNING", sampleCaptor.getValue().getPredictionState());
+        assertEquals(1.0f, sampleCaptor.getValue().getPredictionConfidence());
+        assertEquals(512, sampleCaptor.getValue().getPredictionReasoning().length());
+    }
+
+    @Test
     void shouldStillPersistDataWhenBaselineIsNotReady() {
         TelemetryPayload payload = buildPayload(84L, "AA:BB:CC:DD:EE:44", 84.0f, 98.0f, LocalDateTime.of(2026, 4, 2, 10, 15));
         Device device = buildDevice(84L, payload.deviceMac());
@@ -294,6 +336,29 @@ class TelemetryIngestionServiceTest {
     }
 
     @Test
+    void shouldRejectTelemetryWithImpossibleBiometricsAndUnknownPredictionState() {
+        TelemetryPayload payload = new TelemetryPayload(
+                842L,
+                "AA:BB:CC:DD:EE:87",
+                280.0f,
+                130.0f,
+                LocalDateTime.now(),
+                Boolean.TRUE,
+                "DANGEROUS_UNKNOWN",
+                0.4f,
+                "Unexpected state"
+        );
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> telemetryIngestionService.ingest(payload)
+        );
+
+        assertEquals("Telemetry BPM must be between 30 and 220", exception.getMessage());
+        verify(biometricTelemetrySampleRepository, never()).save(any());
+    }
+
+    @Test
     void shouldPersistCrisisOutcomeWhenMediatorDetectsCrisis() {
         TelemetryPayload payload = buildPayload(86L, "AA:BB:CC:DD:EE:47", 112.0f, 92.0f, LocalDateTime.of(2026, 4, 2, 10, 25));
         Device device = buildDevice(86L, payload.deviceMac());
@@ -315,6 +380,34 @@ class TelemetryIngestionServiceTest {
         telemetryIngestionService.ingest(payload);
 
         verify(crisisOutcomePersistenceService).persist(mediationResult);
+    }
+
+    @Test
+    void shouldKeepTelemetryWhenCommandDeliveryFailsAfterCrisisPersistence() {
+        TelemetryPayload payload = buildPayload(87L, "AA:BB:CC:DD:EE:48", 112.0f, 92.0f, LocalDateTime.of(2026, 4, 2, 10, 26));
+        Device device = buildDevice(87L, payload.deviceMac());
+        BaseLine baseLine = buildReadyBaseLine(87L, 80.0f, 98.0f);
+        BiometricTelemetrySample storedSample = BiometricTelemetrySample.from(payload.patientId(), payload.deviceMac(), toDomain(payload));
+        CrisisMediator.CrisisMediationResult mediationResult = buildCrisisResult(payload.patientId(), payload.observedAt());
+
+        when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
+        when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
+        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
+        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
+        when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
+        when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
+        when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
+                new RiskAssessmentService.AssessmentSnapshot(0.32f, 280.0f, 330.0f, 5, StateEnum.ACTIVE_CRISIS, "error-dwell-flight", "acute")
+        );
+        when(crisisMediator.mediate(any())).thenReturn(mediationResult);
+        doThrow(new IllegalStateException("Realtime service unavailable"))
+                .when(deviceService)
+                .sendCommand(any(), any(), any());
+
+        assertDoesNotThrow(() -> telemetryIngestionService.ingest(payload));
+
+        verify(crisisOutcomePersistenceService).persist(mediationResult);
+        verify(deviceService).sendCommand(any(), any(), any());
     }
 
     @Test
