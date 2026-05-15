@@ -1,6 +1,8 @@
 package com.neurolive.neuro_live_backend.repository;
 
 import com.neurolive.neuro_live_backend.domain.user.AuditLog;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
@@ -11,7 +13,13 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
     List<AuditLog> findAllByUserIdOrderByTimestampDesc(Long userId);
 
+    Page<AuditLog> findAllByUserIdOrderByTimestampDesc(Long userId, Pageable pageable);
+
     List<AuditLog> findAllByTargetPatientIdOrderByTimestampDesc(Long targetPatientId);
 
+    Page<AuditLog> findAllByTargetPatientIdOrderByTimestampDesc(Long targetPatientId, Pageable pageable);
+
     List<AuditLog> findAllByTimestampBetweenOrderByTimestampDesc(LocalDateTime start, LocalDateTime end);
+
+    Page<AuditLog> findAllByTimestampBetweenOrderByTimestampDesc(LocalDateTime start, LocalDateTime end, Pageable pageable);
 }
