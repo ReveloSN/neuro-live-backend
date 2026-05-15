@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -130,6 +131,39 @@ class DeviceConnectionMonitorServiceTest {
         monitorService.scanForDisconnects(lastHeartbeat.plusSeconds(9));
         assertFalse(device.getIsConnected());
         assertEquals(1, observer.updates().size());
+    }
+
+    @Test
+    void shouldValidateDeviceTokenAgainstStoredHash() {
+        Device device = new Device();
+        device.register(97L, "AA:BB:CC:DD:EE:97", null, "device-token-97");
+        DeviceConnectionMonitorService monitorService = buildTokenMonitorService();
+        when(deviceRepository.findByMacAddress("AA:BB:CC:DD:EE:97")).thenReturn(Optional.of(device));
+
+        assertTrue(monitorService.isValidDeviceToken("aa-bb-cc-dd-ee-97", "device-token-97"));
+        assertFalse(monitorService.isValidDeviceToken("AA:BB:CC:DD:EE:97", "wrong-token"));
+    }
+
+    private DeviceConnectionMonitorService buildTokenMonitorService() {
+        TelemetryMonitoringProperties properties = new TelemetryMonitoringProperties();
+        properties.setDisconnectTimeoutSeconds(5L);
+        properties.setDisconnectCheckIntervalSeconds(1L);
+        properties.setExpectedTelemetryIntervalSeconds(1L);
+        properties.setDisconnectGracePeriods(1L);
+
+        return new DeviceConnectionMonitorService(
+                deviceService,
+                new CrisisMediator(
+                        List.of(
+                                new UIIntervention(),
+                                new BreathingIntervention(),
+                                new LightIntervention(),
+                                new AudioIntervention()
+                        )
+                ),
+                properties,
+                deviceRepository
+        );
     }
 
     private DeviceConnectionMonitorService buildMonitorService(Device device,
