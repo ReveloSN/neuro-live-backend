@@ -1,8 +1,10 @@
 package com.neurolive.neuro_live_backend.business.analysis;
 
 import com.neurolive.neuro_live_backend.data.enums.StateEnum;
+import com.neurolive.neuro_live_backend.infrastructure.config.AnalysisProperties;
 import com.neurolive.neuro_live_backend.repository.CrisisEventRepository;
 import jakarta.annotation.PostConstruct;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
@@ -21,10 +23,12 @@ public class KDTreeClassifier {
     );
 
     private final CrisisEventRepository crisisEventRepository;
+    private final AnalysisProperties analysisProperties;
     private volatile Node root;
 
-    public KDTreeClassifier(CrisisEventRepository crisisEventRepository) {
+    public KDTreeClassifier(CrisisEventRepository crisisEventRepository, AnalysisProperties analysisProperties) {
         this.crisisEventRepository = crisisEventRepository;
+        this.analysisProperties = analysisProperties;
     }
 
     @PostConstruct
@@ -34,13 +38,15 @@ public class KDTreeClassifier {
         this.root = build(points, 0);
     }
 
-    // Carga puntos de entrenamiento reales desde el historial de crisis.
+    // Carga un subconjunto reciente de crisis para evitar cargar todo el historial en memoria.
     private List<LabeledPoint> loadPointsFromDatabase() {
         try {
-            return crisisEventRepository.findAll().stream()
-                    .filter(event -> event.getState() != null
-                            && event.getTriggerBpm() != null
-                            && event.getTriggerSpo2() != null)
+            int limit = Math.max(1, analysisProperties.getKdtreeBootstrapLimit());
+            return crisisEventRepository
+                    .findAllByStateNotNullOrderByStartedAtDesc(PageRequest.of(0, limit))
+                    .getContent()
+                    .stream()
+                    .filter(event -> event.getTriggerBpm() != null && event.getTriggerSpo2() != null)
                     .map(event -> new LabeledPoint(
                             new float[]{
                                     event.getTriggerBpm() - 75.0f,
