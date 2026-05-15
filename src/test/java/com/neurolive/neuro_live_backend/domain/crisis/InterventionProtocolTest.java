@@ -1,6 +1,5 @@
 package com.neurolive.neuro_live_backend.domain.crisis;
 
-import com.neurolive.neuro_live_backend.data.enums.StateEnum;
 import com.neurolive.neuro_live_backend.data.enums.TypeEnum;
 import org.junit.jupiter.api.Test;
 
