@@ -1,5 +1,7 @@
 package com.neurolive.neuro_live_backend.business.service;
 
+import com.neurolive.neuro_live_backend.domain.user.Doctor;
+import com.neurolive.neuro_live_backend.domain.user.Patient;
 import com.neurolive.neuro_live_backend.domain.user.User;
 import com.neurolive.neuro_live_backend.presentation.dto.UpdateUserProfileRequest;
 import com.neurolive.neuro_live_backend.presentation.dto.UserProfileResponse;
@@ -45,6 +47,46 @@ public class UserService {
         userRepository.save(user);
     }
 
+    @Transactional(readOnly = true)
+    public String getDoctorSpecialty(String email) {
+        User user = findByEmailOrThrow(email);
+        if (!(user instanceof Doctor doctor)) {
+            throw new IllegalArgumentException("User is not a doctor");
+        }
+        return doctor.getSpecialty();
+    }
+
+    public String updateDoctorSpecialty(String email, String specialty) {
+        User user = findByEmailOrThrow(email);
+        if (!(user instanceof Doctor doctor)) {
+            throw new IllegalArgumentException("User is not a doctor");
+        }
+        doctor.updateSpecialty(specialty);
+        userRepository.save(doctor);
+        return doctor.getSpecialty();
+    }
+
+    @Transactional(readOnly = true)
+    public PatientConsentResponse getPatientConsent(String requesterEmail, Long patientId) {
+        User patient = userRepository.findById(patientId)
+                .orElseThrow(() -> new EntityNotFoundException("Patient not found with id " + patientId));
+        if (!(patient instanceof Patient typedPatient)) {
+            throw new IllegalArgumentException("Referenced user is not a patient");
+        }
+        return new PatientConsentResponse(typedPatient.getId(), typedPatient.getConsentGiven(), typedPatient.getConsentDate());
+    }
+
+    public PatientConsentResponse grantPatientConsent(String requesterEmail, Long patientId) {
+        User patient = userRepository.findById(patientId)
+                .orElseThrow(() -> new EntityNotFoundException("Patient not found with id " + patientId));
+        if (!(patient instanceof Patient typedPatient)) {
+            throw new IllegalArgumentException("Referenced user is not a patient");
+        }
+        typedPatient.giveConsent();
+        userRepository.save(typedPatient);
+        return new PatientConsentResponse(typedPatient.getId(), typedPatient.getConsentGiven(), typedPatient.getConsentDate());
+    }
+
     public User findByEmailOrThrow(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("User not found"));
@@ -59,4 +101,6 @@ public class UserService {
                 user.getActive()
         );
     }
+
+    public record PatientConsentResponse(Long patientId, Boolean consentGiven, java.time.LocalDateTime consentDate) {}
 }
