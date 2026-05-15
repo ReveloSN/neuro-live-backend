@@ -1,5 +1,6 @@
 package com.neurolive.neuro_live_backend.infrastructure.security;
 
+import com.neurolive.neuro_live_backend.business.service.ClinicalAccessService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.messaging.Message;
@@ -9,12 +10,9 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,10 +25,14 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final ClinicalAccessService clinicalAccessService;
 
-    public StompAuthChannelInterceptor(JwtService jwtService, UserDetailsService userDetailsService) {
+    public StompAuthChannelInterceptor(JwtService jwtService,
+                                       UserDetailsService userDetailsService,
+                                       ClinicalAccessService clinicalAccessService) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+        this.clinicalAccessService = clinicalAccessService;
     }
 
     @Override
@@ -90,20 +92,14 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             throw new org.springframework.security.access.AccessDeniedException("Authentication required to subscribe");
         }
 
-        if (principal instanceof UsernamePasswordAuthenticationToken auth) {
-            boolean isPatient = auth.getAuthorities().stream()
-                    .anyMatch(a -> a.getAuthority().equals("ROLE_PATIENT"));
-            if (isPatient) {
-                // Patients may only subscribe to their own topic; resolved from session attribute.
-                Map<String, Object> attrs = accessor.getSessionAttributes();
-                Long sessionPatientId = attrs != null ? (Long) attrs.get("patientId") : null;
-                if (sessionPatientId != null && !sessionPatientId.equals(topicPatientId)) {
-                    LOGGER.warn("STOMP SUBSCRIBE rejected: patient {} tried to subscribe to patient {} topic",
-                            sessionPatientId, topicPatientId);
-                    throw new org.springframework.security.access.AccessDeniedException("Cannot subscribe to another patient's topic");
-                }
-            }
-            // DOCTOR and CAREGIVER can subscribe to any patient topic (UserLink enforced at service layer).
+        try {
+            // Reusa las reglas clinicas REST para no abrir topics por paciente sin vinculo activo.
+            clinicalAccessService.requirePatientAccess(principal.getName(), topicPatientId);
+        } catch (RuntimeException exception) {
+            LOGGER.warn("STOMP SUBSCRIBE rejected: principal={} destination={} reason={}",
+                    principal.getName(), destination, exception.getMessage());
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Cannot subscribe to the requested patient's topic", exception);
         }
         LOGGER.debug("STOMP SUBSCRIBE allowed destination={} principal={}", destination, principal.getName());
     }
