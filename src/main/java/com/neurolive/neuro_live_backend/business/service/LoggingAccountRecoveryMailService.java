@@ -15,6 +15,11 @@ public class LoggingAccountRecoveryMailService implements AccountRecoveryMailSer
 
     @Override
     public void sendRecoveryToken(String email, String rawToken, LocalDateTime expiresAt) {
-        LOGGER.info("Account recovery token email={} token={} expiresAt={}", email, rawToken, expiresAt);
+        LOGGER.info("Account recovery token email={} token={} expiresAt={}", email, maskToken(rawToken), expiresAt);
+    }
+
+    private static String maskToken(String token) {
+        if (token == null || token.length() < 6) return "****";
+        return token.substring(0, 4) + "****" + token.substring(token.length() - 2);
     }
 }

@@ -4,8 +4,8 @@ import com.neurolive.neuro_live_backend.domain.biometric.Device;
 
 import java.time.LocalDateTime;
 
-// Devuelve el estado del dispositivo sin exponer tokens sensibles.
-public record DeviceResponseDTO(
+// Devuelve el token de aprovisionamiento una sola vez al vincular el dispositivo.
+public record DeviceProvisioningResponseDTO(
         Long id,
         Long patientId,
         String macAddress,
@@ -13,11 +13,12 @@ public record DeviceResponseDTO(
         LocalDateTime linkedAt,
         LocalDateTime lastConnection,
         Boolean sensorContact,
-        String fallBackConfig
+        String fallBackConfig,
+        String deviceToken
 ) {
 
-    public static DeviceResponseDTO from(Device device) {
-        return new DeviceResponseDTO(
+    public static DeviceProvisioningResponseDTO from(Device device) {
+        return new DeviceProvisioningResponseDTO(
                 device.getId(),
                 device.getPatientId(),
                 device.getMacAddress(),
@@ -25,7 +26,8 @@ public record DeviceResponseDTO(
                 device.getLinkedAt(),
                 device.getLastConnection(),
                 device.getSensorContact(),
-                device.getFallBackConfig()
+                device.getFallBackConfig(),
+                device.getProvisioningToken()
         );
     }
 }

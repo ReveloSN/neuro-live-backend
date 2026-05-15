@@ -11,9 +11,15 @@ public class AnalysisProperties {
 
     private long baselineWindowMinutes = 5;
     private int trieWindowSize = 8;
+    private long telemetryWindowMinutes = 10;
+    private int kdtreeBootstrapLimit = 500;
 
     public Duration baselineWindow() {
         return Duration.ofMinutes(baselineWindowMinutes);
+    }
+
+    public Duration telemetryWindow() {
+        return Duration.ofMinutes(telemetryWindowMinutes);
     }
 
     public long getBaselineWindowMinutes() {
@@ -30,5 +36,21 @@ public class AnalysisProperties {
 
     public void setTrieWindowSize(int trieWindowSize) {
         this.trieWindowSize = trieWindowSize;
+    }
+
+    public long getTelemetryWindowMinutes() {
+        return telemetryWindowMinutes;
+    }
+
+    public void setTelemetryWindowMinutes(long telemetryWindowMinutes) {
+        this.telemetryWindowMinutes = telemetryWindowMinutes;
+    }
+
+    public int getKdtreeBootstrapLimit() {
+        return kdtreeBootstrapLimit;
+    }
+
+    public void setKdtreeBootstrapLimit(int kdtreeBootstrapLimit) {
+        this.kdtreeBootstrapLimit = kdtreeBootstrapLimit;
     }
 }

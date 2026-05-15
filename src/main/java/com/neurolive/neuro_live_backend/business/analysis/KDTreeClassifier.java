@@ -1,6 +1,10 @@
 package com.neurolive.neuro_live_backend.business.analysis;
 
 import com.neurolive.neuro_live_backend.data.enums.StateEnum;
+import com.neurolive.neuro_live_backend.infrastructure.config.AnalysisProperties;
+import com.neurolive.neuro_live_backend.repository.CrisisEventRepository;
+import jakarta.annotation.PostConstruct;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
@@ -18,10 +22,47 @@ public class KDTreeClassifier {
             new LabeledPoint(new float[]{35.0f, 7.0f, 0.32f, 320.0f, 380.0f}, StateEnum.ACTIVE_CRISIS, "critical")
     );
 
-    private final Node root;
+    private final CrisisEventRepository crisisEventRepository;
+    private final AnalysisProperties analysisProperties;
+    private volatile Node root;
 
-    public KDTreeClassifier() {
-        this.root = build(TRAINING_POINTS, 0);
+    public KDTreeClassifier(CrisisEventRepository crisisEventRepository, AnalysisProperties analysisProperties) {
+        this.crisisEventRepository = crisisEventRepository;
+        this.analysisProperties = analysisProperties;
+    }
+
+    @PostConstruct
+    void initializeFromDatabase() {
+        List<LabeledPoint> dbPoints = loadPointsFromDatabase();
+        List<LabeledPoint> points = dbPoints.isEmpty() ? TRAINING_POINTS : dbPoints;
+        this.root = build(points, 0);
+    }
+
+    // Carga un subconjunto reciente de crisis para evitar cargar todo el historial en memoria.
+    private List<LabeledPoint> loadPointsFromDatabase() {
+        try {
+            int limit = Math.max(1, analysisProperties.getKdtreeBootstrapLimit());
+            return crisisEventRepository
+                    .findAllByStateNotNullOrderByStartedAtDesc(PageRequest.of(0, limit))
+                    .getContent()
+                    .stream()
+                    .filter(event -> event.getTriggerBpm() != null && event.getTriggerSpo2() != null)
+                    .map(event -> new LabeledPoint(
+                            new float[]{
+                                    event.getTriggerBpm() - 75.0f,
+                                    98.0f - event.getTriggerSpo2(),
+                                    event.getTypingErrorRate() != null ? event.getTypingErrorRate() : 0.0f,
+                                    event.getTypingDwellTime() != null ? event.getTypingDwellTime() : 0.0f,
+                                    event.getTypingFlightTime() != null ? event.getTypingFlightTime() : 0.0f
+                            },
+                            event.getState(),
+                            "db-crisis-" + event.getId()
+                    ))
+                    .toList();
+        } catch (Exception exception) {
+            // Si la DB falla al arrancar, se usan los puntos de referencia embebidos.
+            return List.of();
+        }
     }
 
     public ClassificationResult classify(CrisisFeatureVector featureVector) {

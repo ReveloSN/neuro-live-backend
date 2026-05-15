@@ -3,12 +3,14 @@ package com.neurolive.neuro_live_backend.presentation.controller;
 import com.neurolive.neuro_live_backend.business.service.CrisisService;
 import com.neurolive.neuro_live_backend.data.enums.StateEnum;
 import com.neurolive.neuro_live_backend.presentation.dto.ClinicalAnalysisDTO;
+import com.neurolive.neuro_live_backend.presentation.dto.ClinicalInsightDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.CrisisCloseRequestDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.CrisisEventDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.SAMResponseDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.SAMResponseRequestDTO;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -22,122 +24,131 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @RestController
 @RequestMapping("/crises")
 public class CrisisController {
 
-    private final CrisisService crisisService;
+        private final CrisisService crisisService;
 
-    public CrisisController(CrisisService crisisService) {
-        this.crisisService = crisisService;
-    }
+        public CrisisController(CrisisService crisisService) {
+                this.crisisService = crisisService;
+        }
 
-    @GetMapping("/{crisisId}")
-    public ResponseEntity<CrisisEventDTO> getCrisis(Authentication authentication,
-                                                    @PathVariable Long crisisId,
-                                                    HttpServletRequest httpServletRequest) {
-        return ResponseEntity.ok(
-                CrisisEventDTO.from(crisisService.getCrisis(authentication.getName(), crisisId, resolveIp(httpServletRequest)))
-        );
-    }
+        @GetMapping("/{crisisId}")
+        public ResponseEntity<CrisisEventDTO> getCrisis(Authentication authentication,
+                        @PathVariable Long crisisId,
+                        HttpServletRequest httpServletRequest) {
+                return ResponseEntity.ok(
+                                CrisisEventDTO.from(crisisService.getCrisis(authentication.getName(), crisisId,
+                                                resolveIp(httpServletRequest))));
+        }
 
-    @GetMapping("/patients/{patientId}")
-    public ResponseEntity<List<CrisisEventDTO>> getCrisesByPatient(Authentication authentication,
-                                                                   @PathVariable Long patientId,
-                                                                   @RequestParam(required = false) LocalDateTime start,
-                                                                   @RequestParam(required = false) LocalDateTime end,
-                                                                   HttpServletRequest httpServletRequest) {
-        return ResponseEntity.ok(
-                crisisService.getCrisesByPatient(authentication.getName(), patientId, start, end, resolveIp(httpServletRequest))
-                        .stream()
-                        .map(CrisisEventDTO::from)
-                        .toList()
-        );
-    }
+        @GetMapping("/patients/{patientId}")
+        public ResponseEntity<Page<CrisisEventDTO>> getCrisesByPatient(Authentication authentication,
+                        @PathVariable Long patientId,
+                        @RequestParam(required = false) LocalDateTime start,
+                        @RequestParam(required = false) LocalDateTime end,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size,
+                        HttpServletRequest httpServletRequest) {
+                return ResponseEntity.ok(
+                                crisisService.getCrisesByPatient(authentication.getName(), patientId, start, end,
+                                                page, size, resolveIp(httpServletRequest))
+                                                .map(CrisisEventDTO::from));
+        }
 
-    @PostMapping("/{crisisId}/close")
-    public ResponseEntity<CrisisEventDTO> closeCrisis(Authentication authentication,
-                                                      @PathVariable Long crisisId,
-                                                      @Valid @RequestBody CrisisCloseRequestDTO request,
-                                                      HttpServletRequest httpServletRequest) {
-        StateEnum finalState = StateEnum.valueOf(request.finalState().trim().toUpperCase());
-        return ResponseEntity.ok(
-                CrisisEventDTO.from(
-                        crisisService.closeCrisis(
-                                authentication.getName(),
-                                crisisId,
-                                request.endedAt(),
-                                finalState,
-                                resolveIp(httpServletRequest)
-                        )
-                )
-        );
-    }
+        @PostMapping("/{crisisId}/close")
+        public ResponseEntity<CrisisEventDTO> closeCrisis(Authentication authentication,
+                        @PathVariable Long crisisId,
+                        @Valid @RequestBody CrisisCloseRequestDTO request,
+                        HttpServletRequest httpServletRequest) {
+                StateEnum finalState = StateEnum.valueOf(request.finalState().trim().toUpperCase());
+                return ResponseEntity.ok(
+                                CrisisEventDTO.from(
+                                                crisisService.closeCrisis(
+                                                                authentication.getName(),
+                                                                crisisId,
+                                                                request.endedAt(),
+                                                                finalState,
+                                                                resolveIp(httpServletRequest))));
+        }
 
-    @PostMapping("/{crisisId}/sam")
-    public ResponseEntity<SAMResponseDTO> registerSam(Authentication authentication,
-                                                      @PathVariable Long crisisId,
-                                                      @Valid @RequestBody SAMResponseRequestDTO request,
-                                                      HttpServletRequest httpServletRequest) {
-        return ResponseEntity.ok(
-                SAMResponseDTO.from(
-                        crisisService.recordSamResponse(
-                                authentication.getName(),
-                                crisisId,
-                                request.valence(),
-                                request.arousal(),
-                                resolveIp(httpServletRequest)
-                        )
-                )
-        );
-    }
+        @PostMapping("/{crisisId}/sam")
+        public ResponseEntity<SAMResponseDTO> registerSam(Authentication authentication,
+                        @PathVariable Long crisisId,
+                        @Valid @RequestBody SAMResponseRequestDTO request,
+                        HttpServletRequest httpServletRequest) {
+                return ResponseEntity.ok(
+                                SAMResponseDTO.from(
+                                                crisisService.recordSamResponse(
+                                                                authentication.getName(),
+                                                                crisisId,
+                                                                request.valence(),
+                                                                request.arousal(),
+                                                                resolveIp(httpServletRequest))));
+        }
 
-    @GetMapping("/{crisisId}/sam")
-    public ResponseEntity<SAMResponseDTO> getSam(Authentication authentication,
-                                                 @PathVariable Long crisisId,
-                                                 HttpServletRequest httpServletRequest) {
-        return ResponseEntity.ok(
-                SAMResponseDTO.from(
-                        crisisService.getSamResponse(authentication.getName(), crisisId, resolveIp(httpServletRequest))
-                )
-        );
-    }
+        @GetMapping("/{crisisId}/sam")
+        public ResponseEntity<SAMResponseDTO> getSam(Authentication authentication,
+                        @PathVariable Long crisisId,
+                        HttpServletRequest httpServletRequest) {
+                return ResponseEntity.ok(
+                                SAMResponseDTO.from(
+                                                crisisService.getSamResponse(authentication.getName(), crisisId,
+                                                                resolveIp(httpServletRequest))));
+        }
 
-    @GetMapping("/patients/{patientId}/analysis")
-    public ResponseEntity<ClinicalAnalysisDTO> getAnalysis(Authentication authentication,
-                                                           @PathVariable Long patientId,
-                                                           @RequestParam(required = false) LocalDateTime start,
-                                                           @RequestParam(required = false) LocalDateTime end,
-                                                           HttpServletRequest httpServletRequest) {
-        return ResponseEntity.ok(
-                ClinicalAnalysisDTO.from(
-                        crisisService.buildAnalysis(
+        @GetMapping("/patients/{patientId}/analysis")
+        public ResponseEntity<ClinicalAnalysisDTO> getAnalysis(Authentication authentication,
+                        @PathVariable Long patientId,
+                        @RequestParam(required = false) LocalDateTime start,
+                        @RequestParam(required = false) LocalDateTime end,
+                        HttpServletRequest httpServletRequest) {
+                return ResponseEntity.ok(
+                                ClinicalAnalysisDTO.from(
+                                                crisisService.buildAnalysis(
+                                                                authentication.getName(),
+                                                                patientId,
+                                                                start,
+                                                                end,
+                                                                resolveIp(httpServletRequest))));
+        }
+
+        @GetMapping("/patients/{patientId}/insight")
+        // Retorna un insight narrativo para revision clinica.
+        public ResponseEntity<ClinicalInsightDTO> getClinicalInsight(Authentication authentication,
+                        @PathVariable Long patientId,
+                        @RequestParam(required = false) Integer days,
+                        HttpServletRequest httpServletRequest) {
+                var snapshot = crisisService.buildNarrativeInsight(
                                 authentication.getName(),
                                 patientId,
-                                start,
-                                end,
-                                resolveIp(httpServletRequest)
-                        )
-                )
-        );
-    }
+                                days,
+                                resolveIp(httpServletRequest));
+                return ResponseEntity.ok(new ClinicalInsightDTO(
+                                snapshot.patientId(),
+                                snapshot.start(),
+                                snapshot.end(),
+                                snapshot.insight()));
+        }
 
-    @GetMapping(value = "/patients/{patientId}/export", produces = "text/csv")
-    public ResponseEntity<String> exportCsv(Authentication authentication,
-                                            @PathVariable Long patientId,
-                                            @RequestParam(required = false) LocalDateTime start,
-                                            @RequestParam(required = false) LocalDateTime end,
-                                            HttpServletRequest httpServletRequest) {
-        String csv = crisisService.exportCsv(authentication.getName(), patientId, start, end, resolveIp(httpServletRequest));
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"crisis-events-" + patientId + ".csv\"")
-                .contentType(MediaType.parseMediaType("text/csv"))
-                .body(csv);
-    }
+        @GetMapping(value = "/patients/{patientId}/export", produces = "text/csv")
+        public ResponseEntity<String> exportCsv(Authentication authentication,
+                        @PathVariable Long patientId,
+                        @RequestParam(required = false) LocalDateTime start,
+                        @RequestParam(required = false) LocalDateTime end,
+                        HttpServletRequest httpServletRequest) {
+                String csv = crisisService.exportCsv(authentication.getName(), patientId, start, end,
+                                resolveIp(httpServletRequest));
+                return ResponseEntity.ok()
+                                .header(HttpHeaders.CONTENT_DISPOSITION,
+                                                "attachment; filename=\"crisis-events-" + patientId + ".csv\"")
+                                .contentType(MediaType.parseMediaType("text/csv"))
+                                .body(csv);
+        }
 
-    private String resolveIp(HttpServletRequest httpServletRequest) {
-        return httpServletRequest == null ? "unknown" : httpServletRequest.getRemoteAddr();
-    }
+        private String resolveIp(HttpServletRequest httpServletRequest) {
+                return httpServletRequest == null ? "unknown" : httpServletRequest.getRemoteAddr();
+        }
 }

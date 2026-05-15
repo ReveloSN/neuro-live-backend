@@ -11,10 +11,12 @@ import com.neurolive.neuro_live_backend.business.service.DeviceService;
 import com.neurolive.neuro_live_backend.business.service.TelemetryIngestionResult;
 import com.neurolive.neuro_live_backend.business.service.TelemetryIngestionService;
 import com.neurolive.neuro_live_backend.domain.biometric.Device;
+import com.neurolive.neuro_live_backend.presentation.dto.TelemetryPayload;
 import java.time.LocalDateTime;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
@@ -58,9 +60,17 @@ class InternalControllerTest {
                                 "bpm", 90,
                                 "spo2", 98,
                                 "sensorConnected", true,
-                                "receivedAt", "2026-04-22T00:00:00Z"
+                                "receivedAt", "2026-04-22T00:00:00Z",
+                                "predictionState", "WARNING",
+                                "predictionConfidence", 0.66,
+                                "predictionReasoning", "Recent trend needs attention"
                         ))))
                 .andExpect(status().isOk());
+
+        ArgumentCaptor<TelemetryPayload> payloadCaptor = ArgumentCaptor.forClass(TelemetryPayload.class);
+        Mockito.verify(telemetryIngestionService).ingest(payloadCaptor.capture());
+        org.assertj.core.api.Assertions.assertThat(payloadCaptor.getValue().predictionState()).isEqualTo("WARNING");
+        org.assertj.core.api.Assertions.assertThat(payloadCaptor.getValue().predictionConfidence()).isEqualTo(0.66f);
     }
 
     // Comprueba que la telemetria interna rechaza requests sin token.

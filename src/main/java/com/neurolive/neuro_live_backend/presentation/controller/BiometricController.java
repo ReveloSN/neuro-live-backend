@@ -26,7 +26,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/biometrics")
@@ -139,6 +142,24 @@ public class BiometricController {
 
         monitoringConsentService.registerPatientConsent(patientId);
         return ResponseEntity.ok("Consent registered");
+    }
+
+    // Retorna el historial reciente de tecleo de un paciente para analisis clinico.
+    @GetMapping("/patients/{patientId}/keystrokes/recent")
+    public ResponseEntity<List<KeystrokeCaptureResponseDTO>> getRecentKeystrokes(
+            Authentication authentication,
+            @PathVariable Long patientId,
+            @RequestParam(defaultValue = "20") int limit,
+            HttpServletRequest httpServletRequest) {
+        User requester = clinicalAccessService.requirePatientAccess(authentication.getName(), patientId);
+        auditLogService.record(requester.getId(), "READ_KEYSTROKES", patientId, resolveIp(httpServletRequest));
+        int clampedLimit = Math.min(Math.max(1, limit), 100);
+        List<KeystrokeCaptureResponseDTO> result = keystrokeDynamicsService
+                .findRecentForUser(patientId, clampedLimit)
+                .stream()
+                .map(KeystrokeCaptureResponseDTO::from)
+                .toList();
+        return ResponseEntity.ok(result);
     }
 
     private String resolveIp(HttpServletRequest httpServletRequest) {

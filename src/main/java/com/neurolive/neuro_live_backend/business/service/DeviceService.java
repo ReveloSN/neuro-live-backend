@@ -45,7 +45,12 @@ public class DeviceService {
 
     // Mantiene el contrato legado de registro mientras delega a la misma regla de vinculo unico.
     public Device register(Long patientId, String macAddress, String fallBackConfig) {
-        return registerInternal(patientId, macAddress, fallBackConfig);
+        return registerInternal(patientId, macAddress, fallBackConfig, null);
+    }
+
+    // Registra el dispositivo usando un token explicito cuando el ESP32 ya lo tiene.
+    public Device register(Long patientId, String macAddress, String fallBackConfig, String deviceToken) {
+        return registerInternal(patientId, macAddress, fallBackConfig, deviceToken);
     }
 
     // Expone el flujo autorizado de RF05 para asociar un ESP32 a un paciente concreto.
@@ -54,13 +59,23 @@ public class DeviceService {
                              String macAddress,
                              String fallBackConfig,
                              String ipOrigin) {
+        return linkDevice(requesterEmail, patientId, macAddress, fallBackConfig, null, ipOrigin);
+    }
+
+    // Vincula el ESP32 y guarda el hash del token de autenticacion.
+    public Device linkDevice(String requesterEmail,
+                             Long patientId,
+                             String macAddress,
+                             String fallBackConfig,
+                             String deviceToken,
+                             String ipOrigin) {
         User requester = clinicalAccessService.requireDeviceManagementAccess(requesterEmail, patientId);
-        Device device = registerInternal(patientId, macAddress, fallBackConfig);
+        Device device = registerInternal(patientId, macAddress, fallBackConfig, deviceToken);
         auditLogService.record(requester.getId(), "LINK_DEVICE", patientId, normalizeIp(ipOrigin));
         return device;
     }
 
-    private Device registerInternal(Long patientId, String macAddress, String fallBackConfig) {
+    private Device registerInternal(Long patientId, String macAddress, String fallBackConfig, String deviceToken) {
         Patient patient = validatePatientReference(patientId);
         String normalizedMacAddress = normalizeMacAddress(macAddress);
         Optional<Device> existingDevice = deviceRepository.findByMacAddress(normalizedMacAddress);
@@ -73,7 +88,7 @@ public class DeviceService {
         }
 
         Device device = new Device();
-        device.register(patient.getId(), normalizedMacAddress, fallBackConfig);
+        device.register(patient.getId(), normalizedMacAddress, fallBackConfig, deviceToken);
         return deviceRepository.save(device);
     }
 
@@ -106,6 +121,19 @@ public class DeviceService {
         Device device = findByMacAddress(macAddress);
         device.recordTelemetry(telemetryTime, sensorContact);
         return deviceRepository.save(device);
+    }
+
+    // Desvincula el dispositivo del paciente y registra la accion en la auditoria.
+    public void unlinkDevice(String requesterEmail, Long patientId, String macAddress, String ipOrigin) {
+        User requester = clinicalAccessService.requireDeviceManagementAccess(requesterEmail, patientId);
+        String normalizedMacAddress = normalizeMacAddress(macAddress);
+        Device device = deviceRepository.findByMacAddress(normalizedMacAddress)
+                .orElseThrow(() -> new EntityNotFoundException("Device not found for MAC address " + normalizedMacAddress));
+        if (!patientId.equals(device.getPatientId())) {
+            throw new IllegalArgumentException("Device does not belong to this patient");
+        }
+        deviceRepository.delete(device);
+        auditLogService.record(requester.getId(), "UNLINK_DEVICE", patientId, normalizeIp(ipOrigin));
     }
 
     // Revisa los dispositivos conectados y devuelve solo los que realmente cruzaron el timeout.

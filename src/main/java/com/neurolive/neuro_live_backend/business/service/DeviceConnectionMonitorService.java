@@ -105,12 +105,14 @@ public class DeviceConnectionMonitorService {
         );
     }
 
-    // Valida si el dispositivo existe para autenticacion remota basica.
+    // Valida el par deviceId/token contra el hash persistido.
     public boolean isValidDeviceToken(String deviceId, String token) {
-        if (deviceId == null || deviceId.isBlank()) {
+        if (deviceId == null || deviceId.isBlank() || token == null || token.isBlank()) {
             return false;
         }
-        return deviceRepository.existsByMacAddress(normalizeMacAddress(deviceId));
+        return deviceRepository.findByMacAddress(normalizeMacAddress(deviceId))
+                .map(device -> device.isDeviceTokenValid(token))
+                .orElse(false);
     }
 
     // Calcula el timeout final usando la configuracion de gracia.
@@ -155,4 +157,3 @@ public class DeviceConnectionMonitorService {
         return value;
     }
 }
-

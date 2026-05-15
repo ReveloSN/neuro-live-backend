@@ -4,6 +4,8 @@ import com.neurolive.neuro_live_backend.business.service.DeviceConnectionMonitor
 import com.neurolive.neuro_live_backend.business.service.DeviceService;
 import com.neurolive.neuro_live_backend.business.service.TelemetryIngestionService;
 import com.neurolive.neuro_live_backend.presentation.dto.TelemetryPayload;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -86,11 +88,17 @@ public class InternalController {
         return ResponseEntity.ok(valid);
     }
 
-    // Verifica el token interno compartido entre servicios.
+    // Verifica el token interno compartido entre servicios usando comparacion en tiempo constante.
     private void validateToken(String token) {
-        if (token == null || !internalToken.equals(token)) {
+        if (token == null || !timingSafeEquals(internalToken, token)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid internal token");
         }
+    }
+
+    private static boolean timingSafeEquals(String expected, String actual) {
+        return MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.UTF_8),
+                actual.getBytes(StandardCharsets.UTF_8));
     }
 
     // Mapea el cuerpo HTTP al payload que ya consume el negocio.
@@ -101,7 +109,22 @@ public class InternalController {
         Float spo2 = body.get("spo2") != null ? ((Number) body.get("spo2")).floatValue() : null;
         Boolean sensorContact = body.get("sensorConnected") instanceof Boolean sensorConnected ? sensorConnected : null;
         LocalDateTime observedAt = resolveObservedAt(body);
-        return new TelemetryPayload(patientId, deviceMac, bpm, spo2, observedAt, sensorContact);
+        String predictionState = body.get("predictionState") instanceof String value ? value : null;
+        Float predictionConfidence = body.get("predictionConfidence") instanceof Number value
+                ? value.floatValue()
+                : null;
+        String predictionReasoning = body.get("predictionReasoning") instanceof String value ? value : null;
+        return new TelemetryPayload(
+                patientId,
+                deviceMac,
+                bpm,
+                spo2,
+                observedAt,
+                sensorContact,
+                predictionState,
+                predictionConfidence,
+                predictionReasoning
+        );
     }
 
     // Resuelve el paciente vinculado a partir del MAC del dispositivo.
@@ -126,4 +149,3 @@ public class InternalController {
         return LocalDateTime.now();
     }
 }
-

@@ -4,9 +4,11 @@ import com.neurolive.neuro_live_backend.data.enums.StateEnum;
 import com.neurolive.neuro_live_backend.data.enums.TypeEnum;
 import com.neurolive.neuro_live_backend.data.exception.CrisisNotFoundException;
 import com.neurolive.neuro_live_backend.domain.biometric.BaseLine;
+import com.neurolive.neuro_live_backend.domain.biometric.BiometricTelemetrySample;
 import com.neurolive.neuro_live_backend.domain.crisis.CrisisEvent;
 import com.neurolive.neuro_live_backend.domain.crisis.SAMResponse;
 import com.neurolive.neuro_live_backend.domain.user.User;
+import com.neurolive.neuro_live_backend.repository.BiometricTelemetrySampleRepository;
 import com.neurolive.neuro_live_backend.repository.CrisisEventRepository;
 import com.neurolive.neuro_live_backend.repository.SAMResponseRepository;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,9 @@ import java.time.LocalDateTime;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 
 @Service
 @Transactional
@@ -29,17 +34,23 @@ public class CrisisService {
     private final ClinicalAccessService clinicalAccessService;
     private final AuditLogService auditLogService;
     private final BaseLineService baseLineService;
+    private final BiometricTelemetrySampleRepository biometricTelemetrySampleRepository;
+    private final ClinicalInsightService clinicalInsightService;
 
     public CrisisService(CrisisEventRepository crisisEventRepository,
-                         SAMResponseRepository samResponseRepository,
-                         ClinicalAccessService clinicalAccessService,
-                         AuditLogService auditLogService,
-                         BaseLineService baseLineService) {
+            SAMResponseRepository samResponseRepository,
+            ClinicalAccessService clinicalAccessService,
+            AuditLogService auditLogService,
+            BaseLineService baseLineService,
+            BiometricTelemetrySampleRepository biometricTelemetrySampleRepository,
+            ClinicalInsightService clinicalInsightService) {
         this.crisisEventRepository = crisisEventRepository;
         this.samResponseRepository = samResponseRepository;
         this.clinicalAccessService = clinicalAccessService;
         this.auditLogService = auditLogService;
         this.baseLineService = baseLineService;
+        this.biometricTelemetrySampleRepository = biometricTelemetrySampleRepository;
+        this.clinicalInsightService = clinicalInsightService;
     }
 
     @Transactional(readOnly = true)
@@ -51,50 +62,58 @@ public class CrisisService {
     }
 
     @Transactional(readOnly = true)
-    public List<CrisisEvent> getCrisesByPatient(String requesterEmail,
-                                                Long patientId,
-                                                LocalDateTime start,
-                                                LocalDateTime end,
-                                                String ipOrigin) {
+    public Page<CrisisEvent> getCrisesByPatient(String requesterEmail,
+            Long patientId,
+            LocalDateTime start,
+            LocalDateTime end,
+            int page,
+            int size,
+            String ipOrigin) {
         User requester = clinicalAccessService.requirePatientAccess(requesterEmail, patientId);
         DateRange dateRange = normalizeDateRange(start, end);
+        int clampedSize = Math.min(Math.max(1, size), 100);
         auditLogService.record(requester.getId(), "READ_CRISIS_LIST", patientId, ipOrigin);
         return crisisEventRepository.findAllByPatientIdAndStartedAtBetweenOrderByStartedAtDesc(
                 patientId,
                 dateRange.start(),
-                dateRange.end()
-        );
+                dateRange.end(),
+                PageRequest.of(Math.max(0, page), clampedSize));
     }
 
     public CrisisEvent closeCrisis(String requesterEmail,
-                                   Long crisisId,
-                                   LocalDateTime endedAt,
-                                   StateEnum finalState,
-                                   String ipOrigin) {
+            Long crisisId,
+            LocalDateTime endedAt,
+            StateEnum finalState,
+            String ipOrigin) {
         CrisisEvent crisisEvent = getCrisisOrThrow(crisisId);
         User requester = clinicalAccessService.requirePatientAccess(requesterEmail, crisisEvent.getPatientId());
 
-        if (crisisEvent.isActive()) {
+        boolean wasActive = crisisEvent.isActive();
+        if (wasActive) {
             crisisEvent.close(
                     endedAt == null ? LocalDateTime.now() : endedAt,
                     finalState == null ? StateEnum.NORMAL : finalState,
-                    resolveInterventionType(crisisEvent)
-            );
+                    resolveInterventionType(crisisEvent));
         }
 
         auditLogService.record(requester.getId(), "CLOSE_CRISIS_EVENT", crisisEvent.getPatientId(), ipOrigin);
-        return crisisEventRepository.save(crisisEvent);
+        CrisisEvent savedEvent = crisisEventRepository.save(crisisEvent);
+        if (wasActive) {
+            clinicalInsightService.generatePostCrisisSummaryAsync(savedEvent.getId());
+        }
+        return savedEvent;
     }
 
     public SAMResponse recordSamResponse(String requesterEmail,
-                                         Long crisisId,
-                                         Integer valence,
-                                         Integer arousal,
-                                         String ipOrigin) {
+            Long crisisId,
+            Integer valence,
+            Integer arousal,
+            String ipOrigin) {
         CrisisEvent crisisEvent = getCrisisOrThrow(crisisId);
         User requester = clinicalAccessService.requirePatientAccess(requesterEmail, crisisEvent.getPatientId());
 
-        if (crisisEvent.isActive()) {
+        boolean wasActive = crisisEvent.isActive();
+        if (wasActive) {
             crisisEvent.close(LocalDateTime.now(), StateEnum.NORMAL, resolveInterventionType(crisisEvent));
         }
 
@@ -102,6 +121,9 @@ public class CrisisService {
         crisisEvent.attachSamResponse(samResponse);
         CrisisEvent savedEvent = crisisEventRepository.save(crisisEvent);
         auditLogService.record(requester.getId(), "REGISTER_SAM_RESPONSE", crisisEvent.getPatientId(), ipOrigin);
+        if (wasActive) {
+            clinicalInsightService.generatePostCrisisSummaryAsync(savedEvent.getId());
+        }
         return savedEvent.getSamResponse();
     }
 
@@ -116,11 +138,11 @@ public class CrisisService {
 
     @Transactional(readOnly = true)
     public ClinicalAnalysisSnapshot buildAnalysis(String requesterEmail,
-                                                  Long patientId,
-                                                  LocalDateTime start,
-                                                  LocalDateTime end,
-                                                  String ipOrigin) {
-        List<CrisisEvent> crisisEvents = getCrisesByPatient(requesterEmail, patientId, start, end, ipOrigin);
+            Long patientId,
+            LocalDateTime start,
+            LocalDateTime end,
+            String ipOrigin) {
+        List<CrisisEvent> crisisEvents = loadAllCrisisEventsForAnalysis(requesterEmail, patientId, start, end, ipOrigin);
         BaseLine baseLine = null;
         try {
             baseLine = baseLineService.findByPatientId(patientId);
@@ -149,7 +171,8 @@ public class CrisisService {
         crisisEvents.stream()
                 .map(CrisisEvent::getInterventionType)
                 .filter(java.util.Objects::nonNull)
-                // Cuenta las intervenciones por familia clinica para que el analisis salga limpio y comparable.
+                // Cuenta las intervenciones por familia clinica para que el analisis salga
+                // limpio y comparable.
                 .map(TypeEnum::canonical)
                 .forEach(type -> interventionCounts.merge(type, 1L, Long::sum));
 
@@ -162,19 +185,19 @@ public class CrisisService {
                 averageSamArousal,
                 interventionCounts,
                 baseLine == null || !baseLine.isReady() ? null : baseLine.getAvgBpm(),
-                baseLine == null || !baseLine.isReady() ? null : baseLine.getAvgSpo2()
-        );
+                baseLine == null || !baseLine.isReady() ? null : baseLine.getAvgSpo2());
     }
 
     @Transactional(readOnly = true)
     public String exportCsv(String requesterEmail,
-                            Long patientId,
-                            LocalDateTime start,
-                            LocalDateTime end,
-                            String ipOrigin) {
-        List<CrisisEvent> crisisEvents = getCrisesByPatient(requesterEmail, patientId, start, end, ipOrigin);
+            Long patientId,
+            LocalDateTime start,
+            LocalDateTime end,
+            String ipOrigin) {
+        List<CrisisEvent> crisisEvents = loadAllCrisisEventsForAnalysis(requesterEmail, patientId, start, end, ipOrigin);
         StringBuilder csvBuilder = new StringBuilder();
-        csvBuilder.append("crisisId,patientId,state,interventionType,startedAt,endedAt,durationSeconds,triggerBpm,triggerSpo2,typingErrorRate,samValence,samArousal")
+        csvBuilder.append(
+                "crisisId,patientId,state,interventionType,startedAt,endedAt,durationSeconds,triggerBpm,triggerSpo2,typingErrorRate,samValence,samArousal")
                 .append(System.lineSeparator());
 
         for (CrisisEvent crisisEvent : crisisEvents) {
@@ -183,7 +206,8 @@ public class CrisisService {
                     .append(crisisEvent.getState()).append(',')
                     .append(crisisEvent.getInterventionType() == null
                             ? null
-                            : crisisEvent.getInterventionType().canonical()).append(',')
+                            : crisisEvent.getInterventionType().canonical())
+                    .append(',')
                     .append(crisisEvent.getStartedAt()).append(',')
                     .append(crisisEvent.getEndedAt()).append(',')
                     .append(crisisEvent.calculateDuration().getSeconds()).append(',')
@@ -198,6 +222,49 @@ public class CrisisService {
         User requester = clinicalAccessService.requirePatientAccess(requesterEmail, patientId);
         auditLogService.record(requester.getId(), "EXPORT_CRISIS_CSV", patientId, ipOrigin);
         return csvBuilder.toString();
+    }
+
+    @Transactional(readOnly = true)
+    // Construye una narrativa clinica reciente sin exponer datos personales.
+    public ClinicalInsightSnapshot buildNarrativeInsight(String requesterEmail,
+            Long patientId,
+            Integer days,
+            String ipOrigin) {
+        User requester = clinicalAccessService.requirePatientAccess(requesterEmail, patientId);
+        DateRange dateRange = normalizeInsightRange(days);
+        List<CrisisEvent> crisisEvents = crisisEventRepository
+                .findAllByPatientIdAndStartedAtBetweenOrderByStartedAtDesc(
+                        patientId,
+                        dateRange.start(),
+                        dateRange.end());
+        List<BiometricTelemetrySample> telemetrySamples = biometricTelemetrySampleRepository
+                .findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(
+                        patientId,
+                        dateRange.start(),
+                        dateRange.end());
+        auditLogService.record(requester.getId(), "READ_CLINICAL_AI_INSIGHT", patientId, ipOrigin);
+        String insight = clinicalInsightService.generatePatientEvolutionInsight(
+                patientId,
+                crisisEvents,
+                telemetrySamples,
+                dateRange.start(),
+                dateRange.end());
+        return new ClinicalInsightSnapshot(patientId, dateRange.start(), dateRange.end(), insight);
+    }
+
+    // Carga todos los eventos de crisis de un rango sin paginacion, para analisis y exportacion.
+    private List<CrisisEvent> loadAllCrisisEventsForAnalysis(String requesterEmail,
+            Long patientId,
+            LocalDateTime start,
+            LocalDateTime end,
+            String ipOrigin) {
+        User requester = clinicalAccessService.requirePatientAccess(requesterEmail, patientId);
+        DateRange dateRange = normalizeDateRange(start, end);
+        auditLogService.record(requester.getId(), "READ_CRISIS_LIST", patientId, ipOrigin);
+        return crisisEventRepository.findAllByPatientIdAndStartedAtBetweenOrderByStartedAtDesc(
+                patientId,
+                dateRange.start(),
+                dateRange.end());
     }
 
     private CrisisEvent getCrisisOrThrow(Long crisisId) {
@@ -230,6 +297,13 @@ public class CrisisService {
         return new DateRange(effectiveStart, effectiveEnd);
     }
 
+    // Limita la ventana del insight para mantener la consulta simple.
+    private DateRange normalizeInsightRange(Integer days) {
+        int safeDays = days == null || days <= 0 ? 7 : Math.min(days, 30);
+        LocalDateTime end = LocalDateTime.now();
+        return new DateRange(end.minusDays(safeDays), end);
+    }
+
     public record ClinicalAnalysisSnapshot(
             Long patientId,
             long totalEvents,
@@ -239,8 +313,14 @@ public class CrisisService {
             double averageSamArousal,
             Map<TypeEnum, Long> interventionCounts,
             Float baselineBpm,
-            Float baselineSpo2
-    ) {
+            Float baselineSpo2) {
+    }
+
+    public record ClinicalInsightSnapshot(
+            Long patientId,
+            LocalDateTime start,
+            LocalDateTime end,
+            String insight) {
     }
 
     private record DateRange(LocalDateTime start, LocalDateTime end) {
