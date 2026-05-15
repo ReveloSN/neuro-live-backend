@@ -7,6 +7,7 @@ import com.neurolive.neuro_live_backend.domain.biometric.BaseLine;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricData;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricTelemetrySample;
 import com.neurolive.neuro_live_backend.domain.biometric.Device;
+import com.neurolive.neuro_live_backend.infrastructure.config.AnalysisProperties;
 import com.neurolive.neuro_live_backend.presentation.dto.TelemetryPayload;
 import com.neurolive.neuro_live_backend.repository.BiometricTelemetrySampleRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -39,6 +40,7 @@ public class TelemetryIngestionService {
     private final MonitoringConsentService monitoringConsentService;
     private final CrisisMediator crisisMediator;
     private final CrisisOutcomePersistenceService crisisOutcomePersistenceService;
+    private final AnalysisProperties analysisProperties;
 
     public TelemetryIngestionService(BiometricTelemetrySampleRepository biometricTelemetrySampleRepository,
             DeviceService deviceService,
@@ -47,7 +49,8 @@ public class TelemetryIngestionService {
             RiskAssessmentService riskAssessmentService,
             MonitoringConsentService monitoringConsentService,
             CrisisMediator crisisMediator,
-            CrisisOutcomePersistenceService crisisOutcomePersistenceService) {
+            CrisisOutcomePersistenceService crisisOutcomePersistenceService,
+            AnalysisProperties analysisProperties) {
         this.biometricTelemetrySampleRepository = biometricTelemetrySampleRepository;
         this.deviceService = deviceService;
         this.baseLineService = baseLineService;
@@ -56,6 +59,7 @@ public class TelemetryIngestionService {
         this.monitoringConsentService = monitoringConsentService;
         this.crisisMediator = crisisMediator;
         this.crisisOutcomePersistenceService = crisisOutcomePersistenceService;
+        this.analysisProperties = analysisProperties;
     }
 
     // Reutiliza el flujo de telemetria existente y ahora tambien reacciona a reconexiones y fallos del sensor.
@@ -205,7 +209,11 @@ public class TelemetryIngestionService {
     }
 
     private List<BiometricData> loadPatientTelemetry(Long patientId) {
-        return biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(patientId).stream()
+        LocalDateTime windowStart = LocalDateTime.now().minus(analysisProperties.telemetryWindow());
+        LocalDateTime windowEnd = LocalDateTime.now();
+        return biometricTelemetrySampleRepository
+                .findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(patientId, windowStart, windowEnd)
+                .stream()
                 .map(BiometricTelemetrySample::toDomain)
                 .toList();
     }
