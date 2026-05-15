@@ -14,8 +14,10 @@ import com.neurolive.neuro_live_backend.domain.biometric.BiometricData;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricTelemetrySample;
 import com.neurolive.neuro_live_backend.domain.biometric.Device;
 import com.neurolive.neuro_live_backend.domain.crisis.EmotionalState;
+import com.neurolive.neuro_live_backend.infrastructure.config.AnalysisProperties;
 import com.neurolive.neuro_live_backend.presentation.dto.TelemetryPayload;
 import com.neurolive.neuro_live_backend.repository.BiometricTelemetrySampleRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -24,6 +26,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Field;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +39,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -68,8 +73,16 @@ class TelemetryIngestionServiceTest {
     @Mock
     private CrisisOutcomePersistenceService crisisOutcomePersistenceService;
 
+    @Mock
+    private AnalysisProperties analysisProperties;
+
     @InjectMocks
     private TelemetryIngestionService telemetryIngestionService;
+
+    @BeforeEach
+    void configureAnalysisProperties() {
+        lenient().when(analysisProperties.telemetryWindow()).thenReturn(Duration.ofMinutes(10));
+    }
 
     @Test
     void shouldPersistValidTelemetry() {
@@ -81,7 +94,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -108,7 +121,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -134,7 +147,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(activationThreshold);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -175,7 +188,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), Boolean.TRUE)).thenReturn(device);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -212,7 +225,8 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), Boolean.TRUE)).thenReturn(device);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(
+                eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(
                 BiometricTelemetrySample.from(payload.patientId(), payload.deviceMac(), toDomain(payload), "WARNING", 1.0f, "x".repeat(512))
         ));
         when(baseLineService.updateFromTelemetry(any(), any())).thenReturn(baseLine);
@@ -243,7 +257,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -276,7 +290,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), Boolean.FALSE)).thenReturn(updatedDevice);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -305,7 +319,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(updatedDevice);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -369,7 +383,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -393,7 +407,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -430,6 +444,8 @@ class TelemetryIngestionServiceTest {
                 ),
                 List.of(observer)
         );
+        AnalysisProperties localAnalysisProperties = org.mockito.Mockito.mock(AnalysisProperties.class);
+        when(localAnalysisProperties.telemetryWindow()).thenReturn(Duration.ofMinutes(10));
         TelemetryIngestionService localService = new TelemetryIngestionService(
                 sampleRepository,
                 localDeviceService,
@@ -438,7 +454,8 @@ class TelemetryIngestionServiceTest {
                 localRiskAssessmentService,
                 localMonitoringConsentService,
                 actualMediator,
-                localCrisisOutcomePersistenceService
+                localCrisisOutcomePersistenceService,
+                localAnalysisProperties
         );
 
         TelemetryPayload payload = buildPayload(85L, "AA:BB:CC:DD:EE:46", 96.0f, 96.0f, LocalDateTime.of(2026, 4, 2, 10, 20));
@@ -449,7 +466,7 @@ class TelemetryIngestionServiceTest {
         when(localDeviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(sampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(localDeviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
-        when(sampleRepository.findAllByPatientIdOrderByObservedAtAsc(payload.patientId())).thenReturn(List.of(storedSample));
+        when(sampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
         when(localBaseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(localThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(localRiskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
