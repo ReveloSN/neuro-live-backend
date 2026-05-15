@@ -123,6 +123,19 @@ public class DeviceService {
         return deviceRepository.save(device);
     }
 
+    // Desvincula el dispositivo del paciente y registra la accion en la auditoria.
+    public void unlinkDevice(String requesterEmail, Long patientId, String macAddress, String ipOrigin) {
+        User requester = clinicalAccessService.requireDeviceManagementAccess(requesterEmail, patientId);
+        String normalizedMacAddress = normalizeMacAddress(macAddress);
+        Device device = deviceRepository.findByMacAddress(normalizedMacAddress)
+                .orElseThrow(() -> new EntityNotFoundException("Device not found for MAC address " + normalizedMacAddress));
+        if (!patientId.equals(device.getPatientId())) {
+            throw new IllegalArgumentException("Device does not belong to this patient");
+        }
+        deviceRepository.delete(device);
+        auditLogService.record(requester.getId(), "UNLINK_DEVICE", patientId, normalizeIp(ipOrigin));
+    }
+
     // Revisa los dispositivos conectados y devuelve solo los que realmente cruzaron el timeout.
     public List<Device> detectDisconnect(Long timeoutSeconds, LocalDateTime referenceTime) {
         if (timeoutSeconds == null || timeoutSeconds <= 0) {
