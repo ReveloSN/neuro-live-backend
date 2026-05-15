@@ -37,12 +37,33 @@ public class BiometricTelemetrySample {
     @Column(name = "observed_at", nullable = false, updatable = false)
     private LocalDateTime observedAt;
 
+    @Column(name = "prediction_state", length = 30, updatable = false)
+    private String predictionState;
+
+    @Column(name = "prediction_confidence", updatable = false)
+    private Float predictionConfidence;
+
+    @Column(name = "prediction_reasoning", length = 512, updatable = false)
+    private String predictionReasoning;
+
     private BiometricTelemetrySample(Long patientId, String deviceMac, BiometricData biometricData) {
+        this(patientId, deviceMac, biometricData, null, null, null);
+    }
+
+    private BiometricTelemetrySample(Long patientId,
+                                     String deviceMac,
+                                     BiometricData biometricData,
+                                     String predictionState,
+                                     Float predictionConfidence,
+                                     String predictionReasoning) {
         this.patientId = validatePatientId(patientId);
         this.deviceMac = normalizeDeviceMac(deviceMac);
         this.bpm = biometricData.bpm();
         this.spo2 = biometricData.spo2();
         this.observedAt = biometricData.timestamp();
+        this.predictionState = normalizePredictionState(predictionState);
+        this.predictionConfidence = validatePredictionConfidence(predictionConfidence);
+        this.predictionReasoning = normalizePredictionReasoning(predictionReasoning);
     }
 
     public static BiometricTelemetrySample from(Long patientId, String deviceMac, BiometricData biometricData) {
@@ -50,6 +71,25 @@ public class BiometricTelemetrySample {
             throw new IllegalArgumentException("Biometric data is required");
         }
         return new BiometricTelemetrySample(patientId, deviceMac, biometricData);
+    }
+
+    public static BiometricTelemetrySample from(Long patientId,
+                                                String deviceMac,
+                                                BiometricData biometricData,
+                                                String predictionState,
+                                                Float predictionConfidence,
+                                                String predictionReasoning) {
+        if (biometricData == null) {
+            throw new IllegalArgumentException("Biometric data is required");
+        }
+        return new BiometricTelemetrySample(
+                patientId,
+                deviceMac,
+                biometricData,
+                predictionState,
+                predictionConfidence,
+                predictionReasoning
+        );
     }
 
     public BiometricData toDomain() {
@@ -71,5 +111,33 @@ public class BiometricTelemetrySample {
         return deviceMac.trim()
                 .replace('-', ':')
                 .toUpperCase();
+    }
+
+    private String normalizePredictionState(String predictionState) {
+        if (predictionState == null || predictionState.isBlank()) {
+            return null;
+        }
+        return predictionState.trim().toUpperCase(java.util.Locale.ROOT);
+    }
+
+    private Float validatePredictionConfidence(Float predictionConfidence) {
+        if (predictionConfidence == null) {
+            return null;
+        }
+        if (!Float.isFinite(predictionConfidence)) {
+            throw new IllegalArgumentException("Prediction confidence must be finite");
+        }
+        return predictionConfidence;
+    }
+
+    private String normalizePredictionReasoning(String predictionReasoning) {
+        if (predictionReasoning == null) {
+            return null;
+        }
+        String normalized = predictionReasoning.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        return normalized.length() <= 512 ? normalized : normalized.substring(0, 512);
     }
 }
