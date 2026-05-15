@@ -10,6 +10,7 @@ import com.neurolive.neuro_live_backend.presentation.dto.SAMResponseDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.SAMResponseRequestDTO;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +24,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @RestController
 @RequestMapping("/crises")
@@ -45,17 +45,17 @@ public class CrisisController {
         }
 
         @GetMapping("/patients/{patientId}")
-        public ResponseEntity<List<CrisisEventDTO>> getCrisesByPatient(Authentication authentication,
+        public ResponseEntity<Page<CrisisEventDTO>> getCrisesByPatient(Authentication authentication,
                         @PathVariable Long patientId,
                         @RequestParam(required = false) LocalDateTime start,
                         @RequestParam(required = false) LocalDateTime end,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size,
                         HttpServletRequest httpServletRequest) {
                 return ResponseEntity.ok(
                                 crisisService.getCrisesByPatient(authentication.getName(), patientId, start, end,
-                                                resolveIp(httpServletRequest))
-                                                .stream()
-                                                .map(CrisisEventDTO::from)
-                                                .toList());
+                                                page, size, resolveIp(httpServletRequest))
+                                                .map(CrisisEventDTO::from));
         }
 
         @PostMapping("/{crisisId}/close")
