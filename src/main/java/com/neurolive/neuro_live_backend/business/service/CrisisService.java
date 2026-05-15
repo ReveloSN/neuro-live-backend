@@ -20,6 +20,9 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+
 @Service
 @Transactional
 public class CrisisService {
@@ -59,18 +62,22 @@ public class CrisisService {
     }
 
     @Transactional(readOnly = true)
-    public List<CrisisEvent> getCrisesByPatient(String requesterEmail,
+    public Page<CrisisEvent> getCrisesByPatient(String requesterEmail,
             Long patientId,
             LocalDateTime start,
             LocalDateTime end,
+            int page,
+            int size,
             String ipOrigin) {
         User requester = clinicalAccessService.requirePatientAccess(requesterEmail, patientId);
         DateRange dateRange = normalizeDateRange(start, end);
+        int clampedSize = Math.min(Math.max(1, size), 100);
         auditLogService.record(requester.getId(), "READ_CRISIS_LIST", patientId, ipOrigin);
         return crisisEventRepository.findAllByPatientIdAndStartedAtBetweenOrderByStartedAtDesc(
                 patientId,
                 dateRange.start(),
-                dateRange.end());
+                dateRange.end(),
+                PageRequest.of(Math.max(0, page), clampedSize));
     }
 
     public CrisisEvent closeCrisis(String requesterEmail,
@@ -135,7 +142,7 @@ public class CrisisService {
             LocalDateTime start,
             LocalDateTime end,
             String ipOrigin) {
-        List<CrisisEvent> crisisEvents = getCrisesByPatient(requesterEmail, patientId, start, end, ipOrigin);
+        List<CrisisEvent> crisisEvents = loadAllCrisisEventsForAnalysis(requesterEmail, patientId, start, end, ipOrigin);
         BaseLine baseLine = null;
         try {
             baseLine = baseLineService.findByPatientId(patientId);
@@ -187,7 +194,7 @@ public class CrisisService {
             LocalDateTime start,
             LocalDateTime end,
             String ipOrigin) {
-        List<CrisisEvent> crisisEvents = getCrisesByPatient(requesterEmail, patientId, start, end, ipOrigin);
+        List<CrisisEvent> crisisEvents = loadAllCrisisEventsForAnalysis(requesterEmail, patientId, start, end, ipOrigin);
         StringBuilder csvBuilder = new StringBuilder();
         csvBuilder.append(
                 "crisisId,patientId,state,interventionType,startedAt,endedAt,durationSeconds,triggerBpm,triggerSpo2,typingErrorRate,samValence,samArousal")
@@ -243,6 +250,21 @@ public class CrisisService {
                 dateRange.start(),
                 dateRange.end());
         return new ClinicalInsightSnapshot(patientId, dateRange.start(), dateRange.end(), insight);
+    }
+
+    // Carga todos los eventos de crisis de un rango sin paginacion, para analisis y exportacion.
+    private List<CrisisEvent> loadAllCrisisEventsForAnalysis(String requesterEmail,
+            Long patientId,
+            LocalDateTime start,
+            LocalDateTime end,
+            String ipOrigin) {
+        User requester = clinicalAccessService.requirePatientAccess(requesterEmail, patientId);
+        DateRange dateRange = normalizeDateRange(start, end);
+        auditLogService.record(requester.getId(), "READ_CRISIS_LIST", patientId, ipOrigin);
+        return crisisEventRepository.findAllByPatientIdAndStartedAtBetweenOrderByStartedAtDesc(
+                patientId,
+                dateRange.start(),
+                dateRange.end());
     }
 
     private CrisisEvent getCrisisOrThrow(Long crisisId) {
