@@ -6,14 +6,20 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.HexFormat;
 
 @Entity
 @Table(name = "devices")
@@ -25,6 +31,8 @@ public class Device {
     private static final java.util.regex.Pattern MAC_ADDRESS_PATTERN = java.util.regex.Pattern.compile(
             "^(?:[0-9A-F]{2}:){5}[0-9A-F]{2}$"
     );
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final int GENERATED_TOKEN_BYTES = 24;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -55,8 +63,19 @@ public class Device {
     @Column(name = "fall_back_config", length = 2048)
     private String fallBackConfig;
 
+    @Column(name = "device_token_hash", length = 64)
+    private String deviceTokenHash;
+
+    @Transient
+    private String provisioningToken;
+
     // Registra el dispositivo con el paciente y reinicia su estado de conectividad.
     public void register(Long patientId, String macAddress, String fallBackConfig) {
+        register(patientId, macAddress, fallBackConfig, null);
+    }
+
+    // Registra el dispositivo y prepara su token de autenticacion.
+    public void register(Long patientId, String macAddress, String fallBackConfig, String rawToken) {
         this.patientId = validatePatientId(patientId);
         this.macAddress = normalizeMacAddress(macAddress);
         this.fallBackConfig = normalizeFallbackConfig(fallBackConfig);
@@ -64,6 +83,30 @@ public class Device {
         this.lastConnection = null;
         this.linkedAt = LocalDateTime.now();
         this.sensorContact = true;
+        assignDeviceToken(rawToken == null || rawToken.isBlank() ? generateToken() : rawToken);
+    }
+
+    // Guarda solo el hash del token usado por el ESP32.
+    public void assignDeviceToken(String rawToken) {
+        String normalizedToken = normalizeToken(rawToken);
+        this.deviceTokenHash = hashToken(macAddress, normalizedToken);
+        this.provisioningToken = normalizedToken;
+    }
+
+    // Valida el token sin exponer ni comparar el valor crudo.
+    public boolean isDeviceTokenValid(String rawToken) {
+        if (deviceTokenHash == null || deviceTokenHash.isBlank()) {
+            return false;
+        }
+        try {
+            String candidateHash = hashToken(macAddress, normalizeToken(rawToken));
+            return MessageDigest.isEqual(
+                    deviceTokenHash.getBytes(StandardCharsets.UTF_8),
+                    candidateHash.getBytes(StandardCharsets.UTF_8)
+            );
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
     }
 
     // Marca el dispositivo como desconectado cuando supera el tiempo maximo sin muestras.
@@ -169,5 +212,35 @@ public class Device {
 
         String normalized = fallBackConfig.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String normalizeToken(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) {
+            throw new IllegalArgumentException("Device token is required");
+        }
+        String normalized = rawToken.trim();
+        if (normalized.length() < 6 || normalized.length() > 128) {
+            throw new IllegalArgumentException("Device token must contain between 6 and 128 characters");
+        }
+        return normalized;
+    }
+
+    private String generateToken() {
+        byte[] tokenBytes = new byte[GENERATED_TOKEN_BYTES];
+        SECURE_RANDOM.nextBytes(tokenBytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);
+    }
+
+    private String hashToken(String macAddress, String rawToken) {
+        if (macAddress == null || macAddress.isBlank()) {
+            throw new IllegalStateException("Device MAC address is required before assigning a token");
+        }
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest((macAddress + ":" + rawToken).getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is not available", exception);
+        }
     }
 }
