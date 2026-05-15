@@ -47,6 +47,7 @@ class CrisisServiceTest {
     );
 
     @Test
+    @SuppressWarnings("unchecked")
     void shouldBuildNarrativeInsightWithAuthorizationAndAudit() {
         Doctor doctor = new Doctor();
         doctor.register("Doctor Test", "doctor@neurolive.test", "encoded-secret");
