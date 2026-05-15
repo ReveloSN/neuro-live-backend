@@ -1,6 +1,8 @@
 package com.neurolive.neuro_live_backend.repository;
 
 import com.neurolive.neuro_live_backend.domain.crisis.CrisisEvent;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
@@ -12,11 +14,22 @@ public interface CrisisEventRepository extends JpaRepository<CrisisEvent, Long> 
 
     List<CrisisEvent> findAllByPatientIdOrderByStartedAtDesc(Long patientId);
 
+    Page<CrisisEvent> findAllByPatientIdOrderByStartedAtDesc(Long patientId, Pageable pageable);
+
     List<CrisisEvent> findAllByPatientIdAndStartedAtBetweenOrderByStartedAtDesc(
             Long patientId,
             LocalDateTime start,
             LocalDateTime end
     );
 
+    Page<CrisisEvent> findAllByPatientIdAndStartedAtBetweenOrderByStartedAtDesc(
+            Long patientId,
+            LocalDateTime start,
+            LocalDateTime end,
+            Pageable pageable
+    );
+
     Optional<CrisisEvent> findFirstByPatientIdAndEndedAtIsNullOrderByStartedAtDesc(Long patientId);
+
+    Page<CrisisEvent> findAllByStateNotNullOrderByStartedAtDesc(Pageable pageable);
 }
