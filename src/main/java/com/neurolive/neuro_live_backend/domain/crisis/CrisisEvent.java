@@ -28,6 +28,9 @@ import java.time.LocalDateTime;
 // Registra el ciclo de vida de un episodio de crisis detectado.
 public class CrisisEvent {
 
+    private static final int MAX_CLINICAL_SUMMARY_LENGTH = 4000;
+    private static final int MAX_CLINICAL_SUMMARY_MODEL_LENGTH = 80;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -72,6 +75,15 @@ public class CrisisEvent {
 
     @OneToOne(mappedBy = "crisisEvent", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private SAMResponse samResponse;
+
+    @Column(name = "clinical_summary", length = MAX_CLINICAL_SUMMARY_LENGTH)
+    private String clinicalSummary;
+
+    @Column(name = "clinical_summary_generated_at")
+    private LocalDateTime clinicalSummaryGeneratedAt;
+
+    @Column(name = "clinical_summary_model", length = MAX_CLINICAL_SUMMARY_MODEL_LENGTH)
+    private String clinicalSummaryModel;
 
     private CrisisEvent(Long patientId, StateEnum state, LocalDateTime startedAt) {
         this.patientId = validatePatientId(patientId);
@@ -154,6 +166,17 @@ public class CrisisEvent {
         this.typingDwellTime = validateOptionalMetric(typingDwellTime, "Typing dwell time");
         this.typingFlightTime = validateOptionalMetric(typingFlightTime, "Typing flight time");
         this.typingErrorCount = validateOptionalCount(typingErrorCount, "Typing error count");
+    }
+
+    // Guarda el resumen clinico generado tras cerrar la crisis.
+    public void recordClinicalSummary(String summary, LocalDateTime generatedAt, String model) {
+        String normalizedSummary = normalizeOptionalText(summary, MAX_CLINICAL_SUMMARY_LENGTH);
+        if (normalizedSummary == null) {
+            throw new IllegalArgumentException("Clinical summary is required");
+        }
+        this.clinicalSummary = normalizedSummary;
+        this.clinicalSummaryGeneratedAt = generatedAt == null ? LocalDateTime.now() : generatedAt;
+        this.clinicalSummaryModel = normalizeOptionalText(model, MAX_CLINICAL_SUMMARY_MODEL_LENGTH);
     }
 
     public boolean isActive() {
@@ -308,5 +331,16 @@ public class CrisisEvent {
             throw new IllegalArgumentException(fieldName + " must be non-negative");
         }
         return value;
+    }
+
+    private String normalizeOptionalText(String value, int maxLength) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        return normalized.length() <= maxLength ? normalized : normalized.substring(0, maxLength);
     }
 }
