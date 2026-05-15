@@ -20,7 +20,10 @@ public record CrisisEventDTO(
         Float typingFlightTime,
         Integer typingErrorCount,
         Integer samValence,
-        Integer samArousal
+        Integer samArousal,
+        String clinicalSummary,
+        LocalDateTime clinicalSummaryGeneratedAt,
+        String clinicalSummaryModel
 ) {
 
     public static CrisisEventDTO from(CrisisEvent crisisEvent) {
@@ -40,7 +43,10 @@ public record CrisisEventDTO(
                 crisisEvent.getTypingFlightTime(),
                 crisisEvent.getTypingErrorCount(),
                 crisisEvent.getSamValence(),
-                crisisEvent.getSamArousal()
+                crisisEvent.getSamArousal(),
+                crisisEvent.getClinicalSummary(),
+                crisisEvent.getClinicalSummaryGeneratedAt(),
+                crisisEvent.getClinicalSummaryModel()
         );
     }
 }
