@@ -4,7 +4,7 @@ import com.neurolive.neuro_live_backend.domain.biometric.Device;
 
 import java.time.LocalDateTime;
 
-// Devuelve el estado util del dispositivo ya asociado a un paciente.
+// Devuelve el estado del dispositivo sin exponer tokens sensibles.
 public record DeviceResponseDTO(
         Long id,
         Long patientId,
@@ -13,11 +13,9 @@ public record DeviceResponseDTO(
         LocalDateTime linkedAt,
         LocalDateTime lastConnection,
         Boolean sensorContact,
-        String fallBackConfig,
-        String deviceToken
+        String fallBackConfig
 ) {
 
-    // Evita exponer la entidad JPA completa y deja listo el payload para frontend.
     public static DeviceResponseDTO from(Device device) {
         return new DeviceResponseDTO(
                 device.getId(),
@@ -27,8 +25,7 @@ public record DeviceResponseDTO(
                 device.getLinkedAt(),
                 device.getLastConnection(),
                 device.getSensorContact(),
-                device.getFallBackConfig(),
-                device.getProvisioningToken()
+                device.getFallBackConfig()
         );
     }
 }
