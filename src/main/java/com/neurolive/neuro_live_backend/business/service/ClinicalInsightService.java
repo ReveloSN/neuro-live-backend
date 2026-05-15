@@ -2,6 +2,7 @@ package com.neurolive.neuro_live_backend.business.service;
 
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricTelemetrySample;
 import com.neurolive.neuro_live_backend.domain.crisis.CrisisEvent;
+import com.neurolive.neuro_live_backend.repository.CrisisEventRepository;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -12,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @Service
@@ -25,14 +27,17 @@ public class ClinicalInsightService {
     private final String apiKey;
     private final String model;
     private final boolean enabled;
+    private final CrisisEventRepository crisisEventRepository;
 
     public ClinicalInsightService(@Value("${gemini.api-key:}") String apiKey,
                                   @Value("${gemini.model:gemini-2.5-flash-lite}") String model,
-                                  @Value("${gemini.enabled:false}") boolean enabled) {
+                                  @Value("${gemini.enabled:false}") boolean enabled,
+                                  CrisisEventRepository crisisEventRepository) {
         this.geminiClient = WebClient.builder().baseUrl(GEMINI_BASE_URL).build();
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.model = model == null || model.isBlank() ? "gemini-2.5-flash-lite" : model.trim();
         this.enabled = enabled && !this.apiKey.isBlank();
+        this.crisisEventRepository = crisisEventRepository;
         if (this.enabled) {
             LOGGER.info("Clinical Gemini insight enabled model={}", this.model);
         } else {
@@ -41,15 +46,21 @@ public class ClinicalInsightService {
     }
 
     @Async
-    // Genera un resumen post-crisis sin bloquear el cierre.
-    public void generatePostCrisisSummaryAsync(CrisisEvent crisisEvent) {
-        if (crisisEvent == null || crisisEvent.getId() == null) {
+    @Transactional
+    // Genera y persiste un resumen post-crisis sin bloquear el cierre.
+    public void generatePostCrisisSummaryAsync(Long crisisEventId) {
+        if (crisisEventId == null || crisisEventId <= 0) {
             return;
         }
-        String summary = generatePostCrisisSummary(crisisEvent);
-        LOGGER.info("Clinical summary generated crisisId={} summary={}", crisisEvent.getId(), summary);
+        crisisEventRepository.findById(crisisEventId).ifPresent(crisisEvent -> {
+            SummaryResult summary = generatePostCrisisSummary(crisisEvent);
+            crisisEvent.recordClinicalSummary(summary.text(), LocalDateTime.now(), summary.model());
+            crisisEventRepository.save(crisisEvent);
+            LOGGER.info("Clinical summary persisted crisisId={} model={}", crisisEvent.getId(), summary.model());
+        });
     }
 
+    @Transactional(readOnly = true)
     // Construye narrativa reciente para dashboards clinicos.
     public String generatePatientEvolutionInsight(Long patientId,
                                                   List<CrisisEvent> crisisEvents,
@@ -69,15 +80,18 @@ public class ClinicalInsightService {
     }
 
     // Genera un resumen corto de una crisis cerrada.
-    private String generatePostCrisisSummary(CrisisEvent crisisEvent) {
+    private SummaryResult generatePostCrisisSummary(CrisisEvent crisisEvent) {
+        String fallback = fallbackCrisisSummary(crisisEvent);
         if (!enabled) {
-            return fallbackCrisisSummary(crisisEvent);
+            return new SummaryResult(fallback, "fallback");
         }
         try {
-            return callGemini(buildCrisisSummaryPrompt(crisisEvent), fallbackCrisisSummary(crisisEvent));
+            String summary = callGemini(buildCrisisSummaryPrompt(crisisEvent), fallback);
+            String sourceModel = summary.equals(fallback) ? "fallback" : model;
+            return new SummaryResult(summary, sourceModel);
         } catch (Exception exception) {
             LOGGER.warn("Post-crisis summary fallback crisisId={} reason={}", crisisEvent.getId(), exception.getMessage());
-            return fallbackCrisisSummary(crisisEvent);
+            return new SummaryResult(fallback, "fallback");
         }
     }
 
@@ -202,5 +216,8 @@ public class ClinicalInsightService {
                 + " eventos de crisis y "
                 + telemetrySamples.size()
                 + " muestras biometricas disponibles para revision clinica.";
+    }
+
+    private record SummaryResult(String text, String model) {
     }
 }
