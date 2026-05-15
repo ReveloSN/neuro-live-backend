@@ -30,7 +30,7 @@ public class InternalController {
     private final DeviceConnectionMonitorService deviceConnectionMonitorService;
     private final DeviceService deviceService;
 
-    @Value("${internal.token:ws-internal-secret-change-in-prod}")
+    @Value("${internal.token}")
     private String internalToken;
 
     // Recibe los servicios usados por la integracion interna.
