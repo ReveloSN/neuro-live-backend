@@ -7,12 +7,15 @@ import com.neurolive.neuro_live_backend.domain.biometric.BiometricData;
 import com.neurolive.neuro_live_backend.infrastructure.config.AnalysisProperties;
 import com.neurolive.neuro_live_backend.repository.CrisisEventRepository;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -43,8 +46,11 @@ class AnalysisComponentsTest {
     @Test
     void shouldClassifyAcuteSignalsAsActiveCrisis() {
         CrisisEventRepository crisisEventRepository = mock(CrisisEventRepository.class);
-        when(crisisEventRepository.findAll()).thenReturn(List.of());
-        KDTreeClassifier classifier = new KDTreeClassifier(crisisEventRepository);
+        when(crisisEventRepository.findAllByStateNotNullOrderByStartedAtDesc(any(Pageable.class)))
+                .thenReturn(Page.empty());
+        AnalysisProperties localProps = new AnalysisProperties();
+        localProps.setKdtreeBootstrapLimit(100);
+        KDTreeClassifier classifier = new KDTreeClassifier(crisisEventRepository, localProps);
         classifier.initializeFromDatabase();
 
         KDTreeClassifier.ClassificationResult result = classifier.classify(
