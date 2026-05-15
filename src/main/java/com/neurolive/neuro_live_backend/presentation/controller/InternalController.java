@@ -4,6 +4,8 @@ import com.neurolive.neuro_live_backend.business.service.DeviceConnectionMonitor
 import com.neurolive.neuro_live_backend.business.service.DeviceService;
 import com.neurolive.neuro_live_backend.business.service.TelemetryIngestionService;
 import com.neurolive.neuro_live_backend.presentation.dto.TelemetryPayload;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -86,11 +88,17 @@ public class InternalController {
         return ResponseEntity.ok(valid);
     }
 
-    // Verifica el token interno compartido entre servicios.
+    // Verifica el token interno compartido entre servicios usando comparacion en tiempo constante.
     private void validateToken(String token) {
-        if (token == null || !internalToken.equals(token)) {
+        if (token == null || !timingSafeEquals(internalToken, token)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid internal token");
         }
+    }
+
+    private static boolean timingSafeEquals(String expected, String actual) {
+        return MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.UTF_8),
+                actual.getBytes(StandardCharsets.UTF_8));
     }
 
     // Mapea el cuerpo HTTP al payload que ya consume el negocio.
