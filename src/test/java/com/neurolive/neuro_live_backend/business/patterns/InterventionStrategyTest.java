@@ -117,6 +117,7 @@ class InterventionStrategyTest {
     }
 
     @Test
+    @SuppressWarnings("deprecation")
     void shouldKeepDeprecatedWrappersDelegatingToRenamedStrategies() {
         InterventionProtocol uiProtocol = new UiReductionStrategy().prepareProtocol(
                 new CrisisMediator.CrisisEvaluationInput(
