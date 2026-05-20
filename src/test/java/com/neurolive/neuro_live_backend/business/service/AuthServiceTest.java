@@ -2,6 +2,8 @@ package com.neurolive.neuro_live_backend.business.service;
 
 import com.neurolive.neuro_live_backend.data.exception.AuthenticationFailedException;
 import com.neurolive.neuro_live_backend.data.enums.RoleEnum;
+import com.neurolive.neuro_live_backend.domain.user.Caregiver;
+import com.neurolive.neuro_live_backend.domain.user.Doctor;
 import com.neurolive.neuro_live_backend.domain.user.Patient;
 import com.neurolive.neuro_live_backend.domain.user.PersonalUser;
 import com.neurolive.neuro_live_backend.domain.user.User;
@@ -165,6 +167,46 @@ class AuthServiceTest {
         when(passwordEncoder.matches("wrong-secret", "$2a$10$encoded-secret")).thenReturn(false);
 
         assertThrows(AuthenticationFailedException.class, () -> authService.login(request));
+    }
+
+    @Test
+    void registerShouldPersistCaregiverSubclassForCaregiverRole() {
+        RegisterRequest request = new RegisterRequest();
+        request.setName("Caregiver One");
+        request.setEmail("caregiver@neurolive.test");
+        request.setPassword("plain-secret");
+        request.setRole(RoleEnum.CAREGIVER);
+
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+        when(passwordEncoder.encode("plain-secret")).thenReturn("encoded-secret");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        authService.register(request);
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        assertInstanceOf(Caregiver.class, userCaptor.getValue());
+        assertEquals(RoleEnum.CAREGIVER, userCaptor.getValue().getRole());
+    }
+
+    @Test
+    void registerShouldPersistDoctorSubclassForDoctorRole() {
+        RegisterRequest request = new RegisterRequest();
+        request.setName("Doctor One");
+        request.setEmail("doctor@neurolive.test");
+        request.setPassword("plain-secret");
+        request.setRole(RoleEnum.DOCTOR);
+
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+        when(passwordEncoder.encode("plain-secret")).thenReturn("encoded-secret");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        authService.register(request);
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        assertInstanceOf(Doctor.class, userCaptor.getValue());
+        assertEquals(RoleEnum.DOCTOR, userCaptor.getValue().getRole());
     }
 
     @Test
