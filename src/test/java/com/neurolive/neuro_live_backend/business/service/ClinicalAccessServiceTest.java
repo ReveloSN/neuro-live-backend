@@ -152,6 +152,27 @@ class ClinicalAccessServiceTest {
                 () -> clinicalAccessService.resolveCurrentUser("  "));
     }
 
+    @Test
+    void resolveCurrentUser_shouldReturnUserByEmail() {
+        Patient patient = buildPatient(10L);
+        when(userRepository.findByEmail("patient10@test.com")).thenReturn(Optional.of(patient));
+
+        User result = clinicalAccessService.resolveCurrentUser("patient10@test.com");
+
+        assertEquals(patient, result);
+    }
+
+    @Test
+    void requirePatientAccess_shouldRejectCaregiverWithoutActiveLink() {
+        Caregiver caregiver = buildCaregiver(30L);
+        when(userRepository.findByEmail("caregiver30@test.com")).thenReturn(Optional.of(caregiver));
+        when(userLinkRepository.existsByPatient_IdAndLinkedUser_IdAndStatus(10L, 30L, StatusEnum.ACTIVE))
+                .thenReturn(false);
+
+        assertThrows(UnauthorizedAccessException.class,
+                () -> clinicalAccessService.requirePatientAccess("caregiver30@test.com", 10L));
+    }
+
     private Patient buildPatient(Long id) {
         Patient patient = new Patient();
         patient.register("Patient " + id, "patient" + id + "@test.com", "hash");
