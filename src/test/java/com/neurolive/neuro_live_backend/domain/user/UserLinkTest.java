@@ -67,6 +67,28 @@ class UserLinkTest {
     }
 
     @Test
+    void revokeShouldSetStatusToRevoked() {
+        Patient patient = buildPatient(30L);
+        Caregiver caregiver = buildCaregiver(31L);
+        UserLink userLink = new UserLink(patient, caregiver, LinkTypeEnum.CAREGIVER);
+        userLink.generateToken();
+        userLink.activate();
+
+        userLink.revoke();
+
+        assertEquals(StatusEnum.REVOKED, userLink.getStatus());
+    }
+
+    @Test
+    void validateTokenShouldReturnFalseForWrongToken() {
+        Patient patient = buildPatient(32L);
+        UserLink userLink = new UserLink(patient);
+        userLink.generateToken(LocalDateTime.now().plusMinutes(10));
+
+        assertFalse(userLink.validateToken("wrong-token-value"));
+    }
+
+    @Test
     void constructorShouldRejectMismatchedLinkedRole() {
         Patient patient = buildPatient(25L);
         Doctor doctor = buildDoctor(26L);
