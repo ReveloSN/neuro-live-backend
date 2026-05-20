@@ -60,4 +60,19 @@ class EmotionalStateTest {
         assertEquals("yellow", EmotionalState.from(StateEnum.RISK_ELEVATED).colorKey());
         assertEquals("red", EmotionalState.from(StateEnum.ACTIVE_CRISIS).colorKey());
     }
+
+    @Test
+    void shouldPreserveStateEnumInAccessor() {
+        EmotionalState atRisk = EmotionalState.from(StateEnum.RISK_ELEVATED);
+
+        assertEquals(StateEnum.RISK_ELEVATED, atRisk.state());
+    }
+
+    @Test
+    void shouldNotBeNormalWhenCrisis() {
+        EmotionalState crisis = EmotionalState.from(StateEnum.ACTIVE_CRISIS);
+
+        assertFalse(crisis.isNormal());
+        assertTrue(crisis.isCrisis());
+    }
 }
