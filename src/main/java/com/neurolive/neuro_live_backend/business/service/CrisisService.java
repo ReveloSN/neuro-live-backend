@@ -224,7 +224,7 @@ public class CrisisService {
         return csvBuilder.toString();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     // Construye una narrativa clinica reciente sin exponer datos personales.
     public ClinicalInsightSnapshot buildNarrativeInsight(String requesterEmail,
             Long patientId,
