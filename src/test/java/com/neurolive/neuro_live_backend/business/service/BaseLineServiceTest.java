@@ -15,6 +15,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import jakarta.persistence.EntityNotFoundException;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -138,6 +139,29 @@ class BaseLineServiceTest {
         when(baseLineRepository.findByPatientId(10L)).thenReturn(Optional.empty());
 
         assertThrows(EntityNotFoundException.class, () -> baseLineService.findByPatientId(10L));
+    }
+
+    @Test
+    void shouldThrowWhenPatientNotFoundForCalculation() {
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class,
+                () -> baseLineService.calculate(99L, List.of()));
+    }
+
+    @Test
+    void shouldReuseExistingBaselineWhenPresent() {
+        Patient patient = buildPatient(11L);
+        BaseLine existing = new BaseLine(11L);
+        when(userRepository.findById(11L)).thenReturn(Optional.of(patient));
+        when(baseLineRepository.findByPatientId(11L)).thenReturn(Optional.of(existing));
+        when(baselineCalculator.calculate(any(BaseLine.class), anyCollection()))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(baseLineRepository.save(any(BaseLine.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        BaseLine result = baseLineService.calculate(11L, List.of());
+
+        assertSame(existing, result);
     }
 
     private Patient buildPatient(Long id) {
