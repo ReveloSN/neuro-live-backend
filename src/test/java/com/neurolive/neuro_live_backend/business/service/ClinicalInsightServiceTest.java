@@ -12,7 +12,9 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -66,6 +68,36 @@ class ClinicalInsightServiceTest {
         assertThat(crisisEvent.getClinicalSummaryGeneratedAt()).isNotNull();
         assertThat(crisisEvent.getClinicalSummaryModel()).isEqualTo("fallback");
         verify(crisisEventRepository).save(crisisEvent);
+    }
+
+    @Test
+    void shouldSkipSummaryGenerationWhenCrisisEventIdIsNull() {
+        CrisisEventRepository crisisEventRepository = mock(CrisisEventRepository.class);
+        ClinicalInsightService service = new ClinicalInsightService(
+                "",
+                "gemini-2.5-flash-lite",
+                false,
+                crisisEventRepository
+        );
+
+        service.generatePostCrisisSummaryAsync(null);
+
+        verify(crisisEventRepository, never()).findById(any());
+    }
+
+    @Test
+    void shouldSkipSummaryGenerationWhenCrisisEventIdIsZero() {
+        CrisisEventRepository crisisEventRepository = mock(CrisisEventRepository.class);
+        ClinicalInsightService service = new ClinicalInsightService(
+                "",
+                "gemini-2.5-flash-lite",
+                false,
+                crisisEventRepository
+        );
+
+        service.generatePostCrisisSummaryAsync(0L);
+
+        verify(crisisEventRepository, never()).findById(any());
     }
 
     // Asigna un ID persistido simulado para la prueba asincrona.
