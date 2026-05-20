@@ -170,6 +170,21 @@ class CrisisMediatorTest {
     }
 
     @Test
+    void shouldReturnNormalStateAndNoInterventionWhenBiometricsAreLow() {
+        BaseLine baseLine = buildReadyBaseLine(49L, 70.0f, 99.0f);
+        BiometricData biometricData = new BiometricData(72.0f, 99.0f,
+                LocalDateTime.of(2026, 4, 1, 14, 40));
+
+        CrisisMediator.CrisisMediationResult result = crisisMediator.mediate(
+                new CrisisMediator.CrisisEvaluationInput(49L, biometricData, baseLine, null, null)
+        );
+
+        assertEquals(StateEnum.NORMAL, result.emotionalState().state());
+        assertFalse(result.crisisDetected());
+        assertNull(result.interventionProtocol());
+    }
+
+    @Test
     void shouldBehaveSafelyWhenThresholdIsAbsent() {
         BaseLine baseLine = buildReadyBaseLine(48L, 81.0f, 98.0f);
         BiometricData currentBiometricData = new BiometricData(
