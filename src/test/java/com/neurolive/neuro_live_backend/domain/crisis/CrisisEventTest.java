@@ -245,4 +245,24 @@ class CrisisEventTest {
         assertTrue(crisisEvent.getEmotionalState().isAtRisk());
         assertEquals("yellow", crisisEvent.getEmotionalState().colorKey());
     }
+
+    @Test
+    void shouldRejectNullPatientIdWhenOpening() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> CrisisEvent.open(null, StateEnum.ACTIVE_CRISIS, LocalDateTime.of(2026, 4, 1, 10, 0))
+        );
+
+        assertEquals("Patient reference must be a positive identifier", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectNullStartedAtWhenOpening() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> CrisisEvent.open(32L, StateEnum.ACTIVE_CRISIS, null)
+        );
+
+        assertEquals("Crisis start time is required", exception.getMessage());
+    }
 }
