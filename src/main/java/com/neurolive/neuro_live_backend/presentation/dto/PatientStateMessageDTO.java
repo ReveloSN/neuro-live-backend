@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 public record PatientStateMessageDTO(
         Long patientId,
         String emotionalState,
+        String label,
         boolean crisisDetected,
         boolean interventionPrepared,
         LocalDateTime observedAt,
@@ -25,6 +26,7 @@ public record PatientStateMessageDTO(
         return new PatientStateMessageDTO(
                 update.patientId(),
                 emotionalState,
+                resolveLabel(update, emotionalState),
                 update.crisisDetected(),
                 update.interventionPrepared(),
                 update.observedAt(),
@@ -33,5 +35,16 @@ public record PatientStateMessageDTO(
                 update.isDisconnectAlert(),
                 update.isSensorContactAlert()
         );
+    }
+
+    private static String resolveLabel(PatientStateUpdate update, String emotionalState) {
+        if (update.isDisconnectAlert()) return "Dispositivo desconectado";
+        if (update.isSensorContactAlert()) return "Sin contacto de sensor";
+        return switch (emotionalState == null ? "" : emotionalState) {
+            case "NORMAL" -> "Normal";
+            case "RISK_ELEVATED" -> "Atención";
+            case "ACTIVE_CRISIS" -> "Crisis activa";
+            default -> null;
+        };
     }
 }
