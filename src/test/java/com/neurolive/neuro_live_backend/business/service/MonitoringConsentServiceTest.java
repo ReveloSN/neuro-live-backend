@@ -4,6 +4,7 @@ import com.neurolive.neuro_live_backend.domain.user.Caregiver;
 import com.neurolive.neuro_live_backend.domain.user.Patient;
 import com.neurolive.neuro_live_backend.domain.user.User;
 import com.neurolive.neuro_live_backend.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +17,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -72,6 +74,27 @@ class MonitoringConsentServiceTest {
 
         assertTrue(result.getConsentGiven());
         verify(userRepository).save(patient);
+    }
+
+    @Test
+    void assertMonitoringAllowed_shouldThrowWhenUserNotFound() {
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class,
+                () -> monitoringConsentService.assertMonitoringAllowed(99L));
+    }
+
+    @Test
+    void registerPatientConsent_shouldPreserveConsentDateOnRepeat() {
+        Patient patient = buildPatient(1L);
+        patient.giveConsent();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(patient));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Patient result = monitoringConsentService.registerPatientConsent(1L);
+
+        assertTrue(result.getConsentGiven());
+        assertNotNull(result.getConsentDate());
     }
 
     @Test
