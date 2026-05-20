@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -85,6 +86,28 @@ class DeviceTest {
         assertEquals("START_BREATHING", command.command());
         assertEquals(dispatchedAt, command.dispatchedAt());
         assertEquals("grounding", command.fallBackConfig());
+    }
+
+    @Test
+    void detectDisconnectShouldReturnFalseBeforeTimeoutExpires() {
+        Device device = new Device();
+        device.register(16L, "AA:BB:CC:DD:EE:33", null);
+        LocalDateTime lastPing = LocalDateTime.of(2026, 3, 27, 10, 0);
+        device.updateStatus(true, lastPing);
+
+        boolean disconnected = device.detectDisconnect(Duration.ofMinutes(5), lastPing.plusMinutes(4));
+
+        assertFalse(disconnected);
+        assertTrue(device.getIsConnected());
+    }
+
+    @Test
+    void registerShouldGenerateProvisioningTokenAutomatically() {
+        Device device = new Device();
+        device.register(17L, "AA:BB:CC:DD:EE:44", null);
+
+        assertNotNull(device.getProvisioningToken());
+        assertFalse(device.getProvisioningToken().isBlank());
     }
 
     private void setId(Device device, Long id) throws Exception {
