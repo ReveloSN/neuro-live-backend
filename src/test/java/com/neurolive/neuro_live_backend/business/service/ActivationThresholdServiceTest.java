@@ -135,6 +135,39 @@ class ActivationThresholdServiceTest {
     }
 
     @Test
+    void saveForPatient_shouldSetCorrectPatientIdOnNewThreshold() {
+        Doctor doctor = buildDoctor(20L);
+        when(clinicalAccessService.requireThresholdManagement("doctor20@test.com", 10L))
+                .thenReturn(doctor);
+        when(activationThresholdRepository
+                .findFirstByPatientIdAndActiveTrueOrderByCreatedAtDesc(10L))
+                .thenReturn(Optional.empty());
+        when(activationThresholdRepository.save(any(ActivationThreshold.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        ActivationThreshold result = activationThresholdService.saveForPatient(
+                "doctor20@test.com", 10L, 60f, 110f, 95f, 0.2f);
+
+        assertEquals(10L, result.getPatientId());
+        assertEquals(20L, result.getDefinedByUserId());
+    }
+
+    @Test
+    void resolveForPersonalUser_shouldReturnGlobalThresholdWhenNoPersonalOneExists() {
+        ActivationThreshold globalThreshold = new ActivationThreshold(55f, 120f, 92f, 0.3f);
+        when(activationThresholdRepository
+                .findFirstByPersonalUserIdAndActiveTrueOrderByCreatedAtDesc(40L))
+                .thenReturn(Optional.empty());
+        when(activationThresholdRepository
+                .findFirstByPatientIdIsNullAndPersonalUserIdIsNullAndActiveTrueOrderByCreatedAtDesc())
+                .thenReturn(Optional.of(globalThreshold));
+
+        ActivationThreshold result = activationThresholdService.resolveForPersonalUser(40L);
+
+        assertEquals(globalThreshold, result);
+    }
+
+    @Test
     void resolveForPatient_shouldReturnNullWhenNoThresholdExists() {
         when(activationThresholdRepository
                 .findFirstByPatientIdAndActiveTrueOrderByCreatedAtDesc(10L))
