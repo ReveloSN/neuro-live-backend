@@ -134,6 +134,27 @@ class DeviceConnectionMonitorServiceTest {
     }
 
     @Test
+    void shouldReturnFalseWhenDeviceNotFoundForTokenValidation() {
+        DeviceConnectionMonitorService monitorService = buildTokenMonitorService();
+        when(deviceRepository.findByMacAddress("AA:BB:CC:DD:EE:99")).thenReturn(Optional.empty());
+
+        assertFalse(monitorService.isValidDeviceToken("AA:BB:CC:DD:EE:99", "any-token"));
+    }
+
+    @Test
+    void shouldNotEmitObserverUpdateWhenDeviceStaysConnected() {
+        LocalDateTime lastHeartbeat = LocalDateTime.of(2026, 4, 2, 12, 0);
+        Device device = buildConnectedDevice(98L, "AA:BB:CC:DD:EE:98", lastHeartbeat);
+        RecordingObserver observer = new RecordingObserver();
+        DeviceConnectionMonitorService monitorService = buildMonitorService(device, observer, 60L);
+
+        monitorService.scanForDisconnects(lastHeartbeat.plusSeconds(30));
+
+        assertTrue(device.getIsConnected());
+        assertTrue(observer.updates().isEmpty());
+    }
+
+    @Test
     void shouldValidateDeviceTokenAgainstStoredHash() {
         Device device = new Device();
         device.register(97L, "AA:BB:CC:DD:EE:97", null, "device-token-97");
