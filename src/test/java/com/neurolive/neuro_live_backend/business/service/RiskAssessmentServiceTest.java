@@ -118,4 +118,37 @@ class RiskAssessmentServiceTest {
         assertEquals(StateEnum.RISK_ELEVATED, snapshot.inferredState());
         assertEquals("elevated-profile", snapshot.matchedProfile());
     }
+
+    @Test
+    void assess_shouldReturnRiskElevatedWhenKeystrokeDwellIsModeratelyHigh() {
+        // dwell=200 is between AT_RISK (180) and CRISIS (260) → RISK_ELEVATED
+        KeystrokeDynamics ks = KeystrokeDynamics.capture(5L, "s1", 200f, 100f, 0, 0.0f, LocalDateTime.now());
+        when(keystrokeDynamicsService.findRecentForUser(eq(5L), eq(8))).thenReturn(List.of(ks));
+        when(triePatternAnalyzer.analyze(any()))
+                .thenReturn(new TriePatternAnalyzer.PatternAnalysisResult(StateEnum.NORMAL, null, 0));
+        when(kdTreeClassifier.classify(any(CrisisFeatureVector.class)))
+                .thenReturn(new KDTreeClassifier.ClassificationResult(StateEnum.NORMAL, 0f, null));
+
+        BiometricData biometricData = new BiometricData(80f, 98f, LocalDateTime.now());
+        RiskAssessmentService.AssessmentSnapshot snapshot =
+                riskAssessmentService.assess(5L, biometricData, null);
+
+        assertEquals(StateEnum.RISK_ELEVATED, snapshot.inferredState());
+    }
+
+    @Test
+    void assess_shouldReturnNullErrorRateWhenNoKeystrokesExist() {
+        when(keystrokeDynamicsService.findRecentForUser(eq(6L), eq(8))).thenReturn(List.of());
+        when(triePatternAnalyzer.analyze(List.of()))
+                .thenReturn(new TriePatternAnalyzer.PatternAnalysisResult(StateEnum.NORMAL, null, 0));
+        when(kdTreeClassifier.classify(any(CrisisFeatureVector.class)))
+                .thenReturn(new KDTreeClassifier.ClassificationResult(StateEnum.NORMAL, 0f, null));
+
+        BiometricData biometricData = new BiometricData(72f, 99f, LocalDateTime.now());
+        RiskAssessmentService.AssessmentSnapshot snapshot =
+                riskAssessmentService.assess(6L, biometricData, null);
+
+        assertEquals(StateEnum.NORMAL, snapshot.inferredState());
+        assertNull(snapshot.errorRate());
+    }
 }
