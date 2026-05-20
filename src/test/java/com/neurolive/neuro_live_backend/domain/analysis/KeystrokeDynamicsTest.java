@@ -68,4 +68,21 @@ class KeystrokeDynamicsTest {
         assertTrue(atRiskSignal.analyzePattern().isAtRisk());
         assertTrue(crisisSignal.analyzePattern().isCrisis());
     }
+
+    @Test
+    void shouldReturnNormalWhenDwellAndFlightAreWithinRange() {
+        KeystrokeDynamics normal = KeystrokeDynamics.capture(127L, 100.0f, 150.0f, LocalDateTime.now());
+
+        assertTrue(normal.analyzePattern().isNormal());
+    }
+
+    @Test
+    void shouldCreateRecordWithSessionId() {
+        KeystrokeDynamics ks = KeystrokeDynamics.capture(128L, "session-XYZ", 120f, 90f, 2, 0.03f,
+                LocalDateTime.of(2026, 4, 5, 9, 0));
+
+        assertEquals(128L, ks.getUserId());
+        assertEquals("session-XYZ", ks.getSessionId());
+        assertEquals(2, ks.getErrorCount());
+    }
 }
