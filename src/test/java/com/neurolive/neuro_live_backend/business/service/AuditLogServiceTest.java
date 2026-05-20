@@ -119,4 +119,24 @@ class AuditLogServiceTest {
 
         assertEquals(1, result.size());
     }
+
+    @Test
+    void getByPatient_shouldDelegateToRepository() {
+        AuditLog entry = new AuditLog();
+        entry.record(1L, "VIEW_BIOMETRIC", 2L, "192.168.1.5");
+        when(auditLogRepository.findAllByTargetPatientIdOrderByTimestampDesc(2L))
+                .thenReturn(List.of(entry));
+
+        List<AuditLog> result = auditLogService.getByPatient(2L);
+
+        assertEquals(1, result.size());
+        assertEquals("VIEW_BIOMETRIC", result.getFirst().getAction());
+        verify(auditLogRepository).findAllByTargetPatientIdOrderByTimestampDesc(2L);
+    }
+
+    @Test
+    void getByDateRange_shouldThrowWhenEndIsNull() {
+        assertThrows(IllegalArgumentException.class,
+                () -> auditLogService.getByDateRange(LocalDateTime.now().minusDays(1), null));
+    }
 }
