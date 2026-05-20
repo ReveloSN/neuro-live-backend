@@ -238,6 +238,40 @@ class DeviceServiceTest {
         assertThrows(EntityNotFoundException.class, () -> deviceService.findByMacAddress("AA:BB:CC:DD:EE:99"));
     }
 
+    @Test
+    void unlinkDeviceShouldDeleteDeviceAndRecordAudit() {
+        Patient patient = buildPatient(10L);
+        Device device = new Device();
+        device.register(10L, "AA:BB:CC:DD:EE:FF", null);
+
+        when(clinicalAccessService.requireDeviceManagementAccess("patient10@neurolive.test", 10L))
+                .thenReturn(patient);
+        when(deviceRepository.findByMacAddress("AA:BB:CC:DD:EE:FF"))
+                .thenReturn(Optional.of(device));
+
+        deviceService.unlinkDevice("patient10@neurolive.test", 10L, "AA:BB:CC:DD:EE:FF", "127.0.0.1");
+
+        verify(deviceRepository).delete(device);
+        verify(auditLogService).record(10L, "UNLINK_DEVICE", 10L, "127.0.0.1");
+    }
+
+    @Test
+    void unlinkDeviceShouldRejectDeviceBelongingToAnotherPatient() {
+        Patient patient = buildPatient(10L);
+        Device device = new Device();
+        device.register(99L, "AA:BB:CC:DD:EE:FF", null);
+
+        when(clinicalAccessService.requireDeviceManagementAccess("patient10@neurolive.test", 10L))
+                .thenReturn(patient);
+        when(deviceRepository.findByMacAddress("AA:BB:CC:DD:EE:FF"))
+                .thenReturn(Optional.of(device));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> deviceService.unlinkDevice("patient10@neurolive.test", 10L, "AA:BB:CC:DD:EE:FF", "127.0.0.1"));
+
+        verify(deviceRepository, never()).delete(any(Device.class));
+    }
+
     private Patient buildPatient(Long id) {
         Patient patient = new Patient();
         patient.register("Patient " + id, "patient" + id + "@neurolive.test", "encoded-secret");
