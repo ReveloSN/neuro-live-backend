@@ -86,6 +86,21 @@ class SAMResponseTest {
         assertNotNull(samResponse.getRecordedAt());
     }
 
+    @Test
+    void shouldRejectNullCrisisEvent() {
+        assertThrows(IllegalArgumentException.class,
+                () -> SAMResponse.create(null, 5, 5, LocalDateTime.now()));
+    }
+
+    @Test
+    void shouldRejectSamResponseForOpenCrisisEvent() {
+        CrisisEvent openCrisis = CrisisEvent.open(
+                37L, StateEnum.ACTIVE_CRISIS, LocalDateTime.of(2026, 4, 1, 12, 0));
+
+        assertThrows(IllegalStateException.class,
+                () -> SAMResponse.create(openCrisis, 5, 5, LocalDateTime.now()));
+    }
+
     private CrisisEvent closedCrisisEvent(Long patientId) {
         CrisisEvent crisisEvent = CrisisEvent.open(
                 patientId,
