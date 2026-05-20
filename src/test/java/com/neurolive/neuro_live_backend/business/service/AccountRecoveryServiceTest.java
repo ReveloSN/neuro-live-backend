@@ -254,6 +254,26 @@ class AccountRecoveryServiceTest {
         assertEquals("Recovery token is invalid or expired", exception.getMessage());
     }
 
+    @Test
+    void requestRecoveryShouldRejectBlankEmail() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> accountRecoveryService.requestRecovery("   ")
+        );
+
+        assertEquals("Email is required", exception.getMessage());
+    }
+
+    @Test
+    void resetPasswordShouldRejectBlankNewPassword() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> accountRecoveryService.resetPassword("patient308@neurolive.test", "any-token", "   ")
+        );
+
+        assertEquals("New password is required", exception.getMessage());
+    }
+
     private Patient buildPatient(Long id, String email) {
         Patient patient = new Patient();
         patient.register("Patient " + id, email, "encoded-current");
