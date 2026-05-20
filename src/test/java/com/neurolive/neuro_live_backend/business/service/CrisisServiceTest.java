@@ -1,7 +1,9 @@
 package com.neurolive.neuro_live_backend.business.service;
 
+import com.neurolive.neuro_live_backend.data.enums.StateEnum;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricData;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricTelemetrySample;
+import com.neurolive.neuro_live_backend.domain.crisis.CrisisEvent;
 import com.neurolive.neuro_live_backend.domain.user.Doctor;
 import com.neurolive.neuro_live_backend.domain.user.User;
 import com.neurolive.neuro_live_backend.repository.BiometricTelemetrySampleRepository;
@@ -14,6 +16,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -133,6 +137,44 @@ class CrisisServiceTest {
 
         assertThat(snapshot.insight()).contains("Insight narrativo no generado por IA");
         verify(auditLogService).record(702L, "READ_CLINICAL_AI_INSIGHT", 45L, "127.0.0.1");
+    }
+
+    @Test
+    void getCrisis_shouldRecordAuditLogAfterFetchingEvent() {
+        Doctor doctor = new Doctor();
+        doctor.register("Doctor Audit", "doctor.audit@neurolive.test", "encoded-secret");
+        setId(doctor, 710L);
+
+        CrisisEvent crisisEvent = CrisisEvent.open(50L, StateEnum.ACTIVE_CRISIS, LocalDateTime.now().minusMinutes(10));
+        when(crisisEventRepository.findById(1001L)).thenReturn(Optional.of(crisisEvent));
+        when(clinicalAccessService.requirePatientAccess("doctor.audit@neurolive.test", 50L)).thenReturn(doctor);
+
+        CrisisEvent result = crisisService.getCrisis("doctor.audit@neurolive.test", 1001L, "10.0.0.1");
+
+        assertThat(result).isSameAs(crisisEvent);
+        verify(auditLogService).record(710L, "READ_CRISIS_EVENT", 50L, "10.0.0.1");
+    }
+
+    @Test
+    void buildNarrativeInsight_shouldUseDefaultSevenDaysWhenDaysIsNullOrZero() {
+        Doctor doctor = new Doctor();
+        doctor.register("Doctor Default", "doctor.default@neurolive.test", "encoded-secret");
+        setId(doctor, 720L);
+
+        when(clinicalAccessService.requirePatientAccess("doctor.default@neurolive.test", 46L)).thenReturn(doctor);
+        when(crisisEventRepository.findAllByPatientIdAndStartedAtBetweenOrderByStartedAtDesc(
+                eq(46L), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of());
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(
+                eq(46L), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of());
+        when(clinicalInsightService.generatePatientEvolutionInsight(
+                eq(46L), eq(List.of()), eq(List.of()), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn("fallback");
+
+        CrisisService.ClinicalInsightSnapshot snapshot =
+                crisisService.buildNarrativeInsight("doctor.default@neurolive.test", 46L, 0, "127.0.0.1");
+
+        assertThat(snapshot.patientId()).isEqualTo(46L);
+        assertThat(snapshot.insight()).isEqualTo("fallback");
     }
 
     // Asigna IDs a entidades del dominio usadas en auditoria.
