@@ -10,6 +10,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PatientStateObserverTest {
@@ -78,6 +79,30 @@ class PatientStateObserverTest {
         CrisisMediator crisisMediator = buildMediator();
 
         assertDoesNotThrow(() -> crisisMediator.mediate(buildNormalInput(65L)));
+    }
+
+    @Test
+    void shouldReturnFalseWhenUnsubscribingObserverThatWasNeverSubscribed() {
+        RecordingObserver observer = new RecordingObserver();
+        CrisisMediator crisisMediator = buildMediator();
+
+        assertFalse(crisisMediator.unsubscribe(observer));
+    }
+
+    @Test
+    void shouldDeliverPublishUpdateDirectlyToAllSubscribedObservers() {
+        RecordingObserver firstObserver = new RecordingObserver();
+        RecordingObserver secondObserver = new RecordingObserver();
+        CrisisMediator crisisMediator = buildMediator();
+        crisisMediator.subscribe(firstObserver);
+        crisisMediator.subscribe(secondObserver);
+
+        PatientStateUpdate update = PatientStateUpdate.caregiverDisconnectAlert(66L, LocalDateTime.of(2026, 4, 1, 17, 0));
+        crisisMediator.publishUpdate(update);
+
+        assertEquals(1, firstObserver.updates().size());
+        assertEquals(1, secondObserver.updates().size());
+        assertTrue(firstObserver.updates().getFirst().isDisconnectAlert());
     }
 
     private CrisisMediator buildMediator() {
