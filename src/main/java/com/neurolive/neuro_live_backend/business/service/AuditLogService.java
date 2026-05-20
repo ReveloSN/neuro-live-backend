@@ -22,9 +22,38 @@ public class AuditLogService {
     }
 
     public AuditLog record(Long userId, String action, Long targetPatientId, String ipOrigin) {
+        String previousHash = auditLogRepository.findTopByOrderByIdDesc()
+                .map(AuditLog::getEntryHash)
+                .orElse(null);
         AuditLog auditLog = new AuditLog();
         auditLog.record(userId, action, targetPatientId, ipOrigin);
+        auditLog.sealWithChain(previousHash);
         return auditLogRepository.save(auditLog);
+    }
+
+    @Transactional(readOnly = true)
+    public ChainVerificationResult verifyChain() {
+        List<AuditLog> entries = auditLogRepository.findAllByOrderByIdAsc();
+        String expectedPreviousHash = null;
+        for (AuditLog entry : entries) {
+            if (entry.getEntryHash() == null) {
+                expectedPreviousHash = null;
+                continue;
+            }
+            if (!entry.verifyHash()) {
+                return new ChainVerificationResult(false, entries.size(), entry.getId());
+            }
+            boolean linkOk = (expectedPreviousHash == null && entry.getPreviousHash() == null)
+                    || expectedPreviousHash != null && expectedPreviousHash.equals(entry.getPreviousHash());
+            if (!linkOk) {
+                return new ChainVerificationResult(false, entries.size(), entry.getId());
+            }
+            expectedPreviousHash = entry.getEntryHash();
+        }
+        return new ChainVerificationResult(true, entries.size(), null);
+    }
+
+    public record ChainVerificationResult(boolean valid, int totalEntries, Long brokenAtId) {
     }
 
     @Transactional(readOnly = true)

@@ -9,7 +9,8 @@ public record AuditLogDTO(
         Long userId,
         String action,
         Long targetPatientId,
-        LocalDateTime timestamp
+        LocalDateTime timestamp,
+        String entryHash
 ) {
 
     public static AuditLogDTO from(AuditLog log) {
@@ -18,7 +19,8 @@ public record AuditLogDTO(
                 log.getUserId(),
                 log.getAction(),
                 log.getTargetPatientId(),
-                log.getTimestamp()
+                log.getTimestamp(),
+                log.getEntryHash()
         );
     }
 }

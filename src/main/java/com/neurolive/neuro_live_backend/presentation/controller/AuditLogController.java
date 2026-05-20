@@ -1,6 +1,7 @@
 package com.neurolive.neuro_live_backend.presentation.controller;
 
 import com.neurolive.neuro_live_backend.business.service.AuditLogService;
+import com.neurolive.neuro_live_backend.business.service.AuditLogService.ChainVerificationResult;
 import com.neurolive.neuro_live_backend.business.service.ClinicalAccessService;
 import com.neurolive.neuro_live_backend.data.enums.RoleEnum;
 import com.neurolive.neuro_live_backend.domain.user.User;
@@ -60,6 +61,22 @@ public class AuditLogController {
         User requester = clinicalAccessService.resolveCurrentUser(authentication.getName());
         requireDoctor(requester);
         return ResponseEntity.ok(auditLogService.getByDateRange(start, end, page, size).map(AuditLogDTO::from));
+    }
+
+    private void requireSelfOrDoctor(User requester, Long userId) {
+        boolean isSelf = requester.getId().equals(userId);
+        boolean isDoctor = requester.getRole() == RoleEnum.DOCTOR;
+        if (!isSelf && !isDoctor) {
+            throw new org.springframework.security.access.AccessDeniedException("Access denied to audit logs");
+        }
+    }
+
+    // Verifica la integridad de la cadena de hash de auditoria. Solo accesible para doctores.
+    @GetMapping("/chain/verify")
+    public ResponseEntity<ChainVerificationResult> verifyChain(Authentication authentication) {
+        User requester = clinicalAccessService.resolveCurrentUser(authentication.getName());
+        requireDoctor(requester);
+        return ResponseEntity.ok(auditLogService.verifyChain());
     }
 
     private void requireSelfOrDoctor(User requester, Long userId) {

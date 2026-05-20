@@ -1,0 +1,2 @@
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS previous_hash VARCHAR(64);
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS entry_hash   VARCHAR(64);

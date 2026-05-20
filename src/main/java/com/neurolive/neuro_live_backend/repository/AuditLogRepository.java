@@ -22,4 +22,8 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     List<AuditLog> findAllByTimestampBetweenOrderByTimestampDesc(LocalDateTime start, LocalDateTime end);
 
     Page<AuditLog> findAllByTimestampBetweenOrderByTimestampDesc(LocalDateTime start, LocalDateTime end, Pageable pageable);
+
+    java.util.Optional<AuditLog> findTopByOrderByIdDesc();
+
+    List<AuditLog> findAllByOrderByIdAsc();
 }
