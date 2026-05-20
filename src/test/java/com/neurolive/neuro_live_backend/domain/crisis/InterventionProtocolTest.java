@@ -105,4 +105,23 @@ class InterventionProtocolTest {
         assertEquals(6, interventionProtocol.getBreathingCycles());
         assertTrue(interventionProtocol.getActive());
     }
+
+    @Test
+    void shouldBuildAudioProtocolWithTrackAndVolume() {
+        InterventionProtocol protocol = InterventionProtocol.builder(TypeEnum.AUDIO)
+                .audioTrack("relax_track.mp3", 70)
+                .build();
+
+        assertEquals(TypeEnum.AUDIO, protocol.getType());
+        assertEquals("relax_track.mp3", protocol.getAudioTrack());
+        assertEquals(70, protocol.getAudioVolume());
+    }
+
+    @Test
+    void shouldRejectLightConfigurationOnNonLightProtocol() {
+        assertThrows(IllegalStateException.class,
+                () -> InterventionProtocol.builder(TypeEnum.BREATHING)
+                        .light("warm-blue", 60)
+                        .build());
+    }
 }
