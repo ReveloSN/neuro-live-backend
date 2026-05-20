@@ -98,6 +98,21 @@ class BaseLineTest {
     }
 
     @Test
+    void shouldNotBeReadyBeforeCalculation() {
+        BaseLine baseLine = new BaseLine(28L);
+
+        assertFalse(baseLine.isReady());
+        assertEquals(0.0f, baseLine.getAvgBpm(), 0.0001f);
+        assertEquals(0.0f, baseLine.getAvgSpo2(), 0.0001f);
+    }
+
+    @Test
+    void shouldRejectNullOrZeroPatientId() {
+        assertThrows(IllegalArgumentException.class, () -> new BaseLine(null));
+        assertThrows(IllegalArgumentException.class, () -> new BaseLine(0L));
+    }
+
+    @Test
     void shouldSupportStructuredWeightExtensionPointWithoutChangingCrisisLogic() {
         BaseLine baseLine = new BaseLine(27L);
         LocalDateTime sessionStart = LocalDateTime.of(2026, 3, 27, 11, 0);
