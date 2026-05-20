@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -166,6 +167,30 @@ class UserLinkServiceTest {
 
         assertEquals(1, links.size());
         assertSame(activeLink, links.getFirst());
+    }
+
+    @Test
+    void revoke_shouldSetLinkToRevokedAndPersist() {
+        Patient patient = buildPatient(170L);
+        Caregiver caregiver = buildCaregiver(171L);
+        UserLink userLink = new UserLink(patient, caregiver, LinkTypeEnum.CAREGIVER);
+        userLink.generateToken(LocalDateTime.now().plusMinutes(15));
+        userLink.activate();
+        when(userLinkRepository.findById(500L)).thenReturn(Optional.of(userLink));
+        when(userLinkRepository.save(any(UserLink.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        UserLink result = userLinkService.revoke(500L);
+
+        assertEquals(StatusEnum.REVOKED, result.getStatus());
+        verify(userLinkRepository).save(userLink);
+    }
+
+    @Test
+    void hasActiveLink_shouldReturnTrueWhenActiveLinkExists() {
+        when(userLinkRepository.existsByPatient_IdAndLinkedUser_IdAndStatus(180L, 181L, StatusEnum.ACTIVE))
+                .thenReturn(true);
+
+        assertTrue(userLinkService.hasActiveLink(180L, 181L));
     }
 
     @Test
