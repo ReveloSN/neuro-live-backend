@@ -14,9 +14,12 @@ import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.neurolive.neuro_live_backend.data.exception.UnauthorizedAccessException;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -88,6 +91,28 @@ class KeystrokeDynamicsServiceTest {
             throw new IllegalStateException("Unable to prepare test fixture", e);
         }
         return patient;
+    }
+
+    @Test
+    void capture_shouldRejectCrossPatientAccessForPatientRole() {
+        Patient patient = buildPatient(1L);
+        when(clinicalAccessService.resolveCurrentUser("patient1@test.com")).thenReturn(patient);
+        doThrow(new UnauthorizedAccessException("Access denied"))
+                .when(clinicalAccessService).requirePatientAccess("patient1@test.com", 99L);
+
+        assertThrows(UnauthorizedAccessException.class,
+                () -> keystrokeDynamicsService.capture(
+                        "patient1@test.com", 99L, null, 120f, 80f, 0, 0.0f, LocalDateTime.now()));
+    }
+
+    @Test
+    void findRecentForUser_shouldReturnEmptyListWhenNoEntriesExist() {
+        when(keystrokeDynamicsRepository.findAllByUserIdOrderByTimestampDesc(1L))
+                .thenReturn(List.of());
+
+        List<KeystrokeDynamics> result = keystrokeDynamicsService.findRecentForUser(1L, 5);
+
+        assertTrue(result.isEmpty());
     }
 
     @Test
