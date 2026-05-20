@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -125,6 +126,40 @@ class CrisisOutcomePersistenceServiceTest {
         assertSame(existingOpenEvent, persistedEvent);
         assertNotNull(persistedEvent.getInterventionProtocol());
         assertFalse(persistedEvent.getInterventionProtocol().getActive());
+    }
+
+    @Test
+    void shouldThrowWhenMediationResultIsNull() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> crisisOutcomePersistenceService.persist(null)
+        );
+
+        assertEquals("Crisis mediation result is required", exception.getMessage());
+    }
+
+    @Test
+    void shouldKeepExistingProtocolWhenCrisisEventAlreadyHasOne() {
+        InterventionProtocol existingProtocol = InterventionProtocol.builder(TypeEnum.LIGHT)
+                .light("blue", 50)
+                .build();
+        CrisisEvent existingOpenEvent = CrisisEvent.open(
+                105L,
+                StateEnum.ACTIVE_CRISIS,
+                LocalDateTime.of(2026, 4, 2, 12, 0)
+        );
+        existingOpenEvent.attachInterventionProtocol(existingProtocol);
+
+        CrisisMediator.CrisisMediationResult mediationResult = buildDetectedCrisisResult(105L);
+        when(crisisEventRepository.findFirstByPatientIdAndEndedAtIsNullOrderByStartedAtDesc(105L))
+                .thenReturn(Optional.of(existingOpenEvent));
+        when(crisisEventRepository.save(any(CrisisEvent.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        CrisisEvent result = crisisOutcomePersistenceService.persist(mediationResult).orElseThrow();
+
+        assertEquals(TypeEnum.LIGHT, result.getInterventionType());
+        assertSame(existingProtocol, result.getInterventionProtocol());
     }
 
     private CrisisMediator.CrisisMediationResult buildDetectedCrisisResult(Long patientId) {
