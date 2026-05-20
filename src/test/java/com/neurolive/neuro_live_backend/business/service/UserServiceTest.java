@@ -140,6 +140,32 @@ class UserServiceTest {
                 () -> userService.getPatientConsent("anyone@test.com", 2L));
     }
 
+    @Test
+    void getPatientConsent_shouldReturnConsentStatusForPatient() {
+        Patient patient = buildPatient(1L);
+        patient.giveConsent();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(patient));
+
+        UserService.PatientConsentResponse response = userService.getPatientConsent("anyone@test.com", 1L);
+
+        assertTrue(response.consentGiven());
+        assertNotNull(response.consentDate());
+        assertEquals(1L, response.patientId());
+    }
+
+    @Test
+    void updateCurrentUserProfile_shouldRejectBlankName() {
+        Patient patient = buildPatient(1L);
+        when(userRepository.findByEmail("patient1@test.com")).thenReturn(Optional.of(patient));
+
+        UpdateUserProfileRequest request = new UpdateUserProfileRequest();
+        request.setName("  ");
+        request.setPhotoUrl(null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> userService.updateCurrentUserProfile("patient1@test.com", request));
+    }
+
     private Patient buildPatient(Long id) {
         Patient patient = new Patient();
         patient.register("Patient " + id, "patient" + id + "@test.com", "hash");
