@@ -13,7 +13,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @Service
@@ -46,8 +45,9 @@ public class ClinicalInsightService {
     }
 
     @Async
-    @Transactional
     // Genera y persiste un resumen post-crisis sin bloquear el cierre.
+    // Sin @Transactional: cada repo call abre su propia TX corta para no mantener
+    // una conexion abierta durante el bloqueo de la llamada a Gemini (hasta 5 s).
     public void generatePostCrisisSummaryAsync(Long crisisEventId) {
         if (crisisEventId == null || crisisEventId <= 0) {
             return;
@@ -60,8 +60,8 @@ public class ClinicalInsightService {
         });
     }
 
-    @Transactional(readOnly = true)
     // Construye narrativa reciente para dashboards clinicos.
+    // No requiere TX: recibe listas ya cargadas; la llamada a Gemini es HTTP externo.
     public String generatePatientEvolutionInsight(Long patientId,
                                                   List<CrisisEvent> crisisEvents,
                                                   List<BiometricTelemetrySample> telemetrySamples,
