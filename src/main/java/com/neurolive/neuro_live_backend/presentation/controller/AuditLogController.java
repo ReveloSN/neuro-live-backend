@@ -8,6 +8,7 @@ import com.neurolive.neuro_live_backend.domain.user.User;
 import com.neurolive.neuro_live_backend.presentation.dto.AuditLogDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,7 +20,8 @@ import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/audit")
-// Expone el historial de auditoria para doctores y pacientes con sus propios registros.
+// Expone el historial de auditoria para doctores y pacientes con sus propios
+// registros.
 public class AuditLogController {
 
     private final AuditLogService auditLogService;
@@ -30,7 +32,8 @@ public class AuditLogController {
         this.clinicalAccessService = clinicalAccessService;
     }
 
-    // Devuelve los registros de auditoria de un usuario. El propio usuario puede ver los suyos; doctores pueden ver los de cualquiera.
+    // Devuelve los registros de auditoria de un usuario. El propio usuario puede
+    // ver los suyos; doctores pueden ver los de cualquiera.
     @GetMapping("/users/{userId}")
     public ResponseEntity<Page<AuditLogDTO>> getByUser(Authentication authentication,
             @PathVariable Long userId,
@@ -41,7 +44,8 @@ public class AuditLogController {
         return ResponseEntity.ok(auditLogService.getByUser(userId, page, size).map(AuditLogDTO::from));
     }
 
-    // Devuelve los registros de auditoria relacionados a un paciente. Solo doctores o el propio paciente pueden acceder.
+    // Devuelve los registros de auditoria relacionados a un paciente. Solo doctores
+    // o el propio paciente pueden acceder.
     @GetMapping("/patients/{patientId}")
     public ResponseEntity<Page<AuditLogDTO>> getByPatient(Authentication authentication,
             @PathVariable Long patientId,
@@ -58,24 +62,14 @@ public class AuditLogController {
             @RequestParam LocalDateTime end,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        User requester = clinicalAccessService.resolveCurrentUser(authentication.getName());
-        requireDoctor(requester);
+        requireDoctor(clinicalAccessService.resolveCurrentUser(authentication.getName()));
         return ResponseEntity.ok(auditLogService.getByDateRange(start, end, page, size).map(AuditLogDTO::from));
-    }
-
-    private void requireSelfOrDoctor(User requester, Long userId) {
-        boolean isSelf = requester.getId().equals(userId);
-        boolean isDoctor = requester.getRole() == RoleEnum.DOCTOR;
-        if (!isSelf && !isDoctor) {
-            throw new org.springframework.security.access.AccessDeniedException("Access denied to audit logs");
-        }
     }
 
     // Verifica la integridad de la cadena de hash de auditoria. Solo accesible para doctores.
     @GetMapping("/chain/verify")
     public ResponseEntity<ChainVerificationResult> verifyChain(Authentication authentication) {
-        User requester = clinicalAccessService.resolveCurrentUser(authentication.getName());
-        requireDoctor(requester);
+        requireDoctor(clinicalAccessService.resolveCurrentUser(authentication.getName()));
         return ResponseEntity.ok(auditLogService.verifyChain());
     }
 
@@ -83,13 +77,13 @@ public class AuditLogController {
         boolean isSelf = requester.getId().equals(userId);
         boolean isDoctor = requester.getRole() == RoleEnum.DOCTOR;
         if (!isSelf && !isDoctor) {
-            throw new org.springframework.security.access.AccessDeniedException("Access denied to audit logs");
+            throw new AccessDeniedException("Access denied to audit logs");
         }
     }
 
     private void requireDoctor(User requester) {
         if (requester.getRole() != RoleEnum.DOCTOR) {
-            throw new org.springframework.security.access.AccessDeniedException("Only doctors can query global audit logs");
+            throw new AccessDeniedException("Only doctors can query global audit logs");
         }
     }
 }
