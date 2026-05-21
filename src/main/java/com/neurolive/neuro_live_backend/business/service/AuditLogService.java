@@ -78,24 +78,24 @@ public class AuditLogService {
 
     @Transactional(readOnly = true)
     public List<AuditLog> getByDateRange(LocalDateTime start, LocalDateTime end) {
-        if (start == null || end == null) {
-            throw new IllegalArgumentException("Date range is required");
-        }
-        if (end.isBefore(start)) {
-            throw new IllegalArgumentException("End date must be after the start date");
-        }
+        validateDateRange(start, end);
         return auditLogRepository.findAllByTimestampBetweenOrderByTimestampDesc(start, end);
     }
 
     @Transactional(readOnly = true)
     public Page<AuditLog> getByDateRange(LocalDateTime start, LocalDateTime end, int page, int size) {
+        validateDateRange(start, end);
+        return auditLogRepository.findAllByTimestampBetweenOrderByTimestampDesc(start, end, PageRequest.of(page, clampSize(size)));
+    }
+
+    // Centraliza la validacion del rango de fechas para no duplicarla en cada consulta.
+    private void validateDateRange(LocalDateTime start, LocalDateTime end) {
         if (start == null || end == null) {
             throw new IllegalArgumentException("Date range is required");
         }
         if (end.isBefore(start)) {
             throw new IllegalArgumentException("End date must be after the start date");
         }
-        return auditLogRepository.findAllByTimestampBetweenOrderByTimestampDesc(start, end, PageRequest.of(page, clampSize(size)));
     }
 
     private int clampSize(int size) {
