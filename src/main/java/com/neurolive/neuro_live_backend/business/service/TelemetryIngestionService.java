@@ -127,7 +127,7 @@ public class TelemetryIngestionService {
                 riskAssessmentService.assess(patientId, biometricData, baseLine);
         StateEnum predictiveState = mapPredictiveState(predictionState);
         StateEnum combinedState = maxSeverity(assessmentSnapshot.inferredState(), predictiveState);
-        if (severityOf(combinedState) > severityOf(assessmentSnapshot.inferredState())) {
+        if (combinedState.severity() > assessmentSnapshot.inferredState().severity()) {
             LOGGER.info(
                     "AI prediction elevated patient state patientId={} deviceMac={} predictionState={} confidence={} reactiveState={} finalState={}",
                     patientId,
@@ -275,18 +275,8 @@ public class TelemetryIngestionService {
 
     // Conserva la mayor severidad entre senales reactivas y predictivas.
     private StateEnum maxSeverity(StateEnum left, StateEnum right) {
-        return severityOf(right) > severityOf(left) ? right : left;
-    }
-
-    private int severityOf(StateEnum state) {
-        if (state == null) {
-            return 0;
-        }
-        return switch (state) {
-            case NORMAL -> 0;
-            case RISK_ELEVATED -> 1;
-            case ACTIVE_CRISIS -> 2;
-        };
+        int rightSeverity = right == null ? 0 : right.severity();
+        return rightSeverity > left.severity() ? right : left;
     }
 
     private Long validatePatientId(Long patientId) {

@@ -240,15 +240,7 @@ public class CrisisMediator {
         if (right == null) {
             return left;
         }
-        return severityOf(right) > severityOf(left) ? right : left;
-    }
-
-    private int severityOf(StateEnum state) {
-        return switch (state) {
-            case NORMAL -> 0;
-            case RISK_ELEVATED -> 1;
-            case ACTIVE_CRISIS -> 2;
-        };
+        return right.severity() > left.severity() ? right : left;
     }
 
     public record CrisisEvaluationInput(
