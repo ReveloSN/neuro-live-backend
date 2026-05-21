@@ -201,21 +201,21 @@ public class CrisisService {
                 .append(System.lineSeparator());
 
         for (CrisisEvent crisisEvent : crisisEvents) {
-            csvBuilder.append(crisisEvent.getId()).append(',')
-                    .append(crisisEvent.getPatientId()).append(',')
-                    .append(crisisEvent.getState()).append(',')
-                    .append(crisisEvent.getInterventionType() == null
+            csvBuilder.append(csvEscape(crisisEvent.getId())).append(',')
+                    .append(csvEscape(crisisEvent.getPatientId())).append(',')
+                    .append(csvEscape(crisisEvent.getState())).append(',')
+                    .append(csvEscape(crisisEvent.getInterventionType() == null
                             ? null
-                            : crisisEvent.getInterventionType().canonical())
+                            : crisisEvent.getInterventionType().canonical()))
                     .append(',')
-                    .append(crisisEvent.getStartedAt()).append(',')
-                    .append(crisisEvent.getEndedAt()).append(',')
-                    .append(crisisEvent.calculateDuration().getSeconds()).append(',')
-                    .append(crisisEvent.getTriggerBpm()).append(',')
-                    .append(crisisEvent.getTriggerSpo2()).append(',')
-                    .append(crisisEvent.getTypingErrorRate()).append(',')
-                    .append(crisisEvent.getSamValence()).append(',')
-                    .append(crisisEvent.getSamArousal())
+                    .append(csvEscape(crisisEvent.getStartedAt())).append(',')
+                    .append(csvEscape(crisisEvent.getEndedAt())).append(',')
+                    .append(csvEscape(crisisEvent.calculateDuration().getSeconds())).append(',')
+                    .append(csvEscape(crisisEvent.getTriggerBpm())).append(',')
+                    .append(csvEscape(crisisEvent.getTriggerSpo2())).append(',')
+                    .append(csvEscape(crisisEvent.getTypingErrorRate())).append(',')
+                    .append(csvEscape(crisisEvent.getSamValence())).append(',')
+                    .append(csvEscape(crisisEvent.getSamArousal()))
                     .append(System.lineSeparator());
         }
 
@@ -302,6 +302,18 @@ public class CrisisService {
         int safeDays = days == null || days <= 0 ? 7 : Math.min(days, 30);
         LocalDateTime end = LocalDateTime.now();
         return new DateRange(end.minusDays(safeDays), end);
+    }
+
+    // Escapa valores para CSV RFC 4180: envuelve en comillas si contiene coma, comilla o salto de linea.
+    private static String csvEscape(Object value) {
+        if (value == null) {
+            return "";
+        }
+        String s = value.toString();
+        if (s.contains(",") || s.contains("\"") || s.contains("\n") || s.contains("\r")) {
+            return "\"" + s.replace("\"", "\"\"") + "\"";
+        }
+        return s;
     }
 
     public record ClinicalAnalysisSnapshot(
