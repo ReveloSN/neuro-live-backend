@@ -41,7 +41,7 @@ public class CrisisController {
                         HttpServletRequest httpServletRequest) {
                 return ResponseEntity.ok(
                                 CrisisEventDTO.from(crisisService.getCrisis(authentication.getName(), crisisId,
-                                                resolveIp(httpServletRequest))));
+                                                ControllerSupport.resolveIp(httpServletRequest))));
         }
 
         @GetMapping("/patients/{patientId}")
@@ -54,7 +54,7 @@ public class CrisisController {
                         HttpServletRequest httpServletRequest) {
                 return ResponseEntity.ok(
                                 crisisService.getCrisesByPatient(authentication.getName(), patientId, start, end,
-                                                page, size, resolveIp(httpServletRequest))
+                                                page, size, ControllerSupport.resolveIp(httpServletRequest))
                                                 .map(CrisisEventDTO::from));
         }
 
@@ -71,7 +71,7 @@ public class CrisisController {
                                                                 crisisId,
                                                                 request.endedAt(),
                                                                 finalState,
-                                                                resolveIp(httpServletRequest))));
+                                                                ControllerSupport.resolveIp(httpServletRequest))));
         }
 
         @PostMapping("/{crisisId}/sam")
@@ -86,7 +86,7 @@ public class CrisisController {
                                                                 crisisId,
                                                                 request.valence(),
                                                                 request.arousal(),
-                                                                resolveIp(httpServletRequest))));
+                                                                ControllerSupport.resolveIp(httpServletRequest))));
         }
 
         @GetMapping("/{crisisId}/sam")
@@ -96,7 +96,7 @@ public class CrisisController {
                 return ResponseEntity.ok(
                                 SAMResponseDTO.from(
                                                 crisisService.getSamResponse(authentication.getName(), crisisId,
-                                                                resolveIp(httpServletRequest))));
+                                                                ControllerSupport.resolveIp(httpServletRequest))));
         }
 
         @GetMapping("/patients/{patientId}/analysis")
@@ -112,7 +112,7 @@ public class CrisisController {
                                                                 patientId,
                                                                 start,
                                                                 end,
-                                                                resolveIp(httpServletRequest))));
+                                                                ControllerSupport.resolveIp(httpServletRequest))));
         }
 
         @GetMapping("/patients/{patientId}/insight")
@@ -125,7 +125,7 @@ public class CrisisController {
                                 authentication.getName(),
                                 patientId,
                                 days,
-                                resolveIp(httpServletRequest));
+                                ControllerSupport.resolveIp(httpServletRequest));
                 return ResponseEntity.ok(new ClinicalInsightDTO(
                                 snapshot.patientId(),
                                 snapshot.start(),
@@ -140,7 +140,7 @@ public class CrisisController {
                         @RequestParam(required = false) LocalDateTime end,
                         HttpServletRequest httpServletRequest) {
                 String csv = crisisService.exportCsv(authentication.getName(), patientId, start, end,
-                                resolveIp(httpServletRequest));
+                                ControllerSupport.resolveIp(httpServletRequest));
                 return ResponseEntity.ok()
                                 .header(HttpHeaders.CONTENT_DISPOSITION,
                                                 "attachment; filename=\"crisis-events-" + patientId + ".csv\"")
@@ -148,7 +148,4 @@ public class CrisisController {
                                 .body(csv);
         }
 
-        private String resolveIp(HttpServletRequest httpServletRequest) {
-                return httpServletRequest == null ? "unknown" : httpServletRequest.getRemoteAddr();
-        }
 }

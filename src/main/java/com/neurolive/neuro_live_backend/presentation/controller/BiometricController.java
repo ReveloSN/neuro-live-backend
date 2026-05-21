@@ -64,7 +64,7 @@ public class BiometricController {
                                                                         @Valid @RequestBody BiometricDataDTO request,
                                                                         HttpServletRequest httpServletRequest) {
         User requester = clinicalAccessService.requirePatientAccess(authentication.getName(), request.patientId());
-        auditLogService.record(requester.getId(), "INGEST_TELEMETRY", request.patientId(), resolveIp(httpServletRequest));
+        auditLogService.record(requester.getId(), "INGEST_TELEMETRY", request.patientId(), ControllerSupport.resolveIp(httpServletRequest));
 
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(
                 BiometricIngestionResponseDTO.from(telemetryIngestionService.ingest(request.toPayload()))
@@ -95,7 +95,7 @@ public class BiometricController {
                                                            @PathVariable Long patientId,
                                                            HttpServletRequest httpServletRequest) {
         User requester = clinicalAccessService.requirePatientAccess(authentication.getName(), patientId);
-        auditLogService.record(requester.getId(), "READ_BASELINE", patientId, resolveIp(httpServletRequest));
+        auditLogService.record(requester.getId(), "READ_BASELINE", patientId, ControllerSupport.resolveIp(httpServletRequest));
         return ResponseEntity.ok(BaselineResponseDTO.from(baseLineService.findByPatientId(patientId)));
     }
 
@@ -152,7 +152,7 @@ public class BiometricController {
             @RequestParam(defaultValue = "20") int limit,
             HttpServletRequest httpServletRequest) {
         User requester = clinicalAccessService.requirePatientAccess(authentication.getName(), patientId);
-        auditLogService.record(requester.getId(), "READ_KEYSTROKES", patientId, resolveIp(httpServletRequest));
+        auditLogService.record(requester.getId(), "READ_KEYSTROKES", patientId, ControllerSupport.resolveIp(httpServletRequest));
         int clampedLimit = Math.min(Math.max(1, limit), 100);
         List<KeystrokeCaptureResponseDTO> result = keystrokeDynamicsService
                 .findRecentForUser(patientId, clampedLimit)
@@ -162,7 +162,4 @@ public class BiometricController {
         return ResponseEntity.ok(result);
     }
 
-    private String resolveIp(HttpServletRequest httpServletRequest) {
-        return httpServletRequest == null ? "unknown" : httpServletRequest.getRemoteAddr();
-    }
 }

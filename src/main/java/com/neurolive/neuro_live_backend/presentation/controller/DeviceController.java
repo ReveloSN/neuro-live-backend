@@ -47,7 +47,7 @@ public class DeviceController {
                                 request.deviceMac(),
                                 request.fallBackConfig(),
                                 request.deviceToken(),
-                                resolveIp(httpServletRequest))));
+                                ControllerSupport.resolveIp(httpServletRequest))));
     }
 
     // Lista todos los dispositivos vinculados a un paciente.
@@ -76,11 +76,8 @@ public class DeviceController {
             @PathVariable Long patientId,
             @PathVariable String mac,
             HttpServletRequest httpServletRequest) {
-        deviceService.unlinkDevice(authentication.getName(), patientId, mac, resolveIp(httpServletRequest));
+        deviceService.unlinkDevice(authentication.getName(), patientId, mac, ControllerSupport.resolveIp(httpServletRequest));
         return ResponseEntity.noContent().build();
     }
 
-    private String resolveIp(HttpServletRequest httpServletRequest) {
-        return httpServletRequest == null ? "unknown" : httpServletRequest.getRemoteAddr();
-    }
 }

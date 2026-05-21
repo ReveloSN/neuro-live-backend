@@ -33,7 +33,7 @@ public class UserLinkController {
                                                            HttpServletRequest httpServletRequest) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 LinkTokenResponseDTO.from(
-                        userLinkService.issueToken(authentication.getName(), resolveIp(httpServletRequest))
+                        userLinkService.issueToken(authentication.getName(), ControllerSupport.resolveIp(httpServletRequest))
                 )
         );
     }
@@ -47,7 +47,7 @@ public class UserLinkController {
                         userLinkService.redeemToken(
                                 authentication.getName(),
                                 request.token(),
-                                resolveIp(httpServletRequest)
+                                ControllerSupport.resolveIp(httpServletRequest)
                         )
                 )
         );
@@ -63,7 +63,4 @@ public class UserLinkController {
         );
     }
 
-    private String resolveIp(HttpServletRequest httpServletRequest) {
-        return httpServletRequest == null ? "unknown" : httpServletRequest.getRemoteAddr();
-    }
 }
