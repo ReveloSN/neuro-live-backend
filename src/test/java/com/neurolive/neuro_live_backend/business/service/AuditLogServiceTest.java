@@ -13,13 +13,18 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDateTime;
+import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -48,6 +53,54 @@ class AuditLogServiceTest {
         assertNotNull(result);
         assertEquals("LOGIN", result.getAction());
         verify(auditLogRepository).save(any(AuditLog.class));
+    }
+
+    @Test
+    void record_shouldSealEntryWithPreviousAuditHash() {
+        AuditLog previous = auditLog(1L, 7L, "LOGIN", 7L, "127.0.0.1",
+                LocalDateTime.of(2026, 5, 20, 8, 0), null);
+        previous.sealWithChain(null);
+        when(auditLogRepository.findTopByOrderByIdDesc()).thenReturn(Optional.of(previous));
+        doAnswer(invocation -> invocation.getArgument(0))
+                .when(auditLogRepository).save(any(AuditLog.class));
+
+        AuditLog result = auditLogService.record(8L, "READ_BASELINE", 9L, "10.0.0.8");
+
+        assertEquals(previous.getEntryHash(), result.getPreviousHash());
+        assertNotNull(result.getEntryHash());
+        assertTrue(result.verifyHash());
+    }
+
+    @Test
+    void verifyChain_shouldRejectUnsealedEntryAfterChainStarted() {
+        AuditLog first = auditLog(1L, 7L, "LOGIN", 7L, "127.0.0.1",
+                LocalDateTime.of(2026, 5, 20, 8, 0), null);
+        first.sealWithChain(null);
+        AuditLog broken = auditLog(2L, 8L, "READ_BASELINE", 9L, "10.0.0.8",
+                LocalDateTime.of(2026, 5, 20, 8, 1), first.getEntryHash());
+        broken.sealWithChain(first.getEntryHash());
+        setField(AuditLog.class, broken, "entryHash", null);
+        when(auditLogRepository.findAllByOrderByIdAsc()).thenReturn(List.of(first, broken));
+
+        AuditLogService.ChainVerificationResult result = auditLogService.verifyChain();
+
+        assertFalse(result.valid());
+        assertEquals(2L, result.brokenAtId());
+    }
+
+    @Test
+    void verifyChain_shouldAllowLeadingLegacyEntriesWithoutHash() {
+        AuditLog legacy = auditLog(1L, 7L, "LOGIN", 7L, "127.0.0.1",
+                LocalDateTime.of(2026, 5, 20, 8, 0), null);
+        AuditLog sealed = auditLog(2L, 8L, "READ_BASELINE", 9L, "10.0.0.8",
+                LocalDateTime.of(2026, 5, 20, 8, 1), null);
+        sealed.sealWithChain(null);
+        when(auditLogRepository.findAllByOrderByIdAsc()).thenReturn(List.of(legacy, sealed));
+
+        AuditLogService.ChainVerificationResult result = auditLogService.verifyChain();
+
+        assertTrue(result.valid());
+        assertEquals(2, result.totalEntries());
     }
 
     @Test
@@ -138,5 +191,29 @@ class AuditLogServiceTest {
     void getByDateRange_shouldThrowWhenEndIsNull() {
         assertThrows(IllegalArgumentException.class,
                 () -> auditLogService.getByDateRange(LocalDateTime.now().minusDays(1), null));
+    }
+
+    private AuditLog auditLog(Long id,
+                              Long userId,
+                              String action,
+                              Long targetPatientId,
+                              String ipOrigin,
+                              LocalDateTime timestamp,
+                              String previousHash) {
+        AuditLog auditLog = new AuditLog();
+        auditLog.record(userId, action, targetPatientId, ipOrigin, timestamp);
+        setField(AuditLog.class, auditLog, "id", id);
+        setField(AuditLog.class, auditLog, "previousHash", previousHash);
+        return auditLog;
+    }
+
+    private void setField(Class<?> owner, Object target, String fieldName, Object value) {
+        try {
+            Field field = owner.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(target, value);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Unable to set field " + fieldName, e);
+        }
     }
 }

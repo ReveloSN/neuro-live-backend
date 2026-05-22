@@ -37,6 +37,9 @@ public class AuditLogService {
         String expectedPreviousHash = null;
         for (AuditLog entry : entries) {
             if (entry.getEntryHash() == null) {
+                if (expectedPreviousHash != null) {
+                    return new ChainVerificationResult(false, entries.size(), entry.getId());
+                }
                 expectedPreviousHash = null;
                 continue;
             }
