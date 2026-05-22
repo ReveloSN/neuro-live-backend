@@ -17,6 +17,7 @@ Configura estas variables en `App Service > Settings > Environment variables`:
 - `SPRING_DATASOURCE_PASSWORD`
 - `JWT_SECRET`
 - `JWT_EXPIRATION`
+- `INTERNAL_TOKEN`
 - `APP_ALLOWED_ORIGINS`
 - `MANAGEMENT_HEALTH_MAIL_ENABLED=false` si no hay SMTP productivo configurado
 - `PORT` opcional, si defines un comando de arranque personalizado
@@ -95,6 +96,7 @@ Revisa:
 - que `SPRING_DATASOURCE_URL` apunte a Azure PostgreSQL
 - que el firewall de PostgreSQL permita conexiones desde Azure
 - que `JWT_SECRET` tenga suficiente longitud para HMAC
+- que `INTERNAL_TOKEN` exista y sea el mismo token esperado por los endpoints internos
 - que `MANAGEMENT_HEALTH_MAIL_ENABLED` este en `false` mientras `ACCOUNT_RECOVERY_MAIL_MODE=logging` o no existan credenciales SMTP
 - que el plan y la region coincidan con lo configurado en `pom.xml`
 
