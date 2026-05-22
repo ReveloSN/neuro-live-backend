@@ -36,6 +36,7 @@ build/
 ### Local CLI / build caches ###
 .azure/
 .azure-local/
+.claude/
 .m2/
 .m2-local/
 
