@@ -19,6 +19,10 @@ Configura estas variables en `App Service > Settings > Environment variables`:
 - `JWT_EXPIRATION`
 - `INTERNAL_TOKEN`
 - `APP_ALLOWED_ORIGINS`
+- `GEMINI_API_KEY` si se habilitan insights clinicos con IA
+- `GEMINI_ENABLED=true` si se habilitan insights clinicos con IA
+- `GEMINI_MODEL` opcional; por defecto `gemini-2.5-flash-lite`
+- `GEMINI_TIMEOUT_SECONDS` opcional; usar `20` si Gemini tarda mas de 5 segundos en responder
 - `MANAGEMENT_HEALTH_MAIL_ENABLED=false` si no hay SMTP productivo configurado
 - `PORT` opcional, si defines un comando de arranque personalizado
 

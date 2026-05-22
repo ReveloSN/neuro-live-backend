@@ -26,16 +26,19 @@ public class ClinicalInsightService {
     private final String apiKey;
     private final String model;
     private final boolean enabled;
+    private final Duration geminiTimeout;
     private final CrisisEventRepository crisisEventRepository;
 
     public ClinicalInsightService(@Value("${gemini.api-key:}") String apiKey,
                                   @Value("${gemini.model:gemini-2.5-flash-lite}") String model,
                                   @Value("${gemini.enabled:false}") boolean enabled,
+                                  @Value("${gemini.timeout-seconds:15}") long timeoutSeconds,
                                   CrisisEventRepository crisisEventRepository) {
         this.geminiClient = WebClient.builder().baseUrl(GEMINI_BASE_URL).build();
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.model = model == null || model.isBlank() ? "gemini-2.5-flash-lite" : model.trim();
         this.enabled = enabled && !this.apiKey.isBlank();
+        this.geminiTimeout = Duration.ofSeconds(Math.max(1, timeoutSeconds));
         this.crisisEventRepository = crisisEventRepository;
         if (this.enabled) {
             LOGGER.info("Clinical Gemini insight enabled model={}", this.model);
@@ -47,7 +50,7 @@ public class ClinicalInsightService {
     @Async
     // Genera y persiste un resumen post-crisis sin bloquear el cierre.
     // Sin @Transactional: cada repo call abre su propia TX corta para no mantener
-    // una conexion abierta durante el bloqueo de la llamada a Gemini (hasta 5 s).
+    // una conexion abierta durante el bloqueo de la llamada a Gemini.
     public void generatePostCrisisSummaryAsync(Long crisisEventId) {
         if (crisisEventId == null || crisisEventId <= 0) {
             return;
@@ -95,7 +98,7 @@ public class ClinicalInsightService {
         }
     }
 
-    // Llama a Gemini con timeout corto y respuesta textual.
+    // Llama a Gemini con timeout acotado y respuesta textual.
     private String callGemini(String prompt, String fallback) {
         Map<String, Object> request = Map.of(
                 "contents", List.of(Map.of(
@@ -116,7 +119,7 @@ public class ClinicalInsightService {
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                 })
-                .block(Duration.ofSeconds(5));
+                .block(geminiTimeout);
 
         String text = extractText(response);
         return text == null || text.isBlank() ? fallback : text.trim();

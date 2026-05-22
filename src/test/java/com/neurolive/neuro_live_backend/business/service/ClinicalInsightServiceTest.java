@@ -6,6 +6,7 @@ import com.neurolive.neuro_live_backend.data.enums.StateEnum;
 import com.neurolive.neuro_live_backend.data.enums.TypeEnum;
 import com.neurolive.neuro_live_backend.repository.CrisisEventRepository;
 import java.lang.reflect.Field;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +28,7 @@ class ClinicalInsightServiceTest {
                 "",
                 "gemini-2.5-flash-lite",
                 false,
+                15,
                 mock(CrisisEventRepository.class)
         );
 
@@ -50,6 +52,7 @@ class ClinicalInsightServiceTest {
                 "",
                 "gemini-2.5-flash-lite",
                 false,
+                15,
                 crisisEventRepository
         );
         CrisisEvent crisisEvent = CrisisEvent.open(
@@ -77,6 +80,7 @@ class ClinicalInsightServiceTest {
                 "",
                 "gemini-2.5-flash-lite",
                 false,
+                15,
                 crisisEventRepository
         );
 
@@ -92,12 +96,26 @@ class ClinicalInsightServiceTest {
                 "",
                 "gemini-2.5-flash-lite",
                 false,
+                15,
                 crisisEventRepository
         );
 
         service.generatePostCrisisSummaryAsync(0L);
 
         verify(crisisEventRepository, never()).findById(any());
+    }
+
+    @Test
+    void shouldUseConfiguredGeminiTimeout() {
+        ClinicalInsightService service = new ClinicalInsightService(
+                "configured-key",
+                "gemini-2.5-flash-lite",
+                true,
+                20,
+                mock(CrisisEventRepository.class)
+        );
+
+        assertThat(readTimeout(service)).isEqualTo(Duration.ofSeconds(20));
     }
 
     // Asigna un ID persistido simulado para la prueba asincrona.
@@ -108,6 +126,16 @@ class ClinicalInsightServiceTest {
             field.set(crisisEvent, id);
         } catch (ReflectiveOperationException exception) {
             throw new IllegalStateException("Unable to set test crisis id", exception);
+        }
+    }
+
+    private Duration readTimeout(ClinicalInsightService service) {
+        try {
+            Field field = ClinicalInsightService.class.getDeclaredField("geminiTimeout");
+            field.setAccessible(true);
+            return (Duration) field.get(service);
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Unable to read Gemini timeout", exception);
         }
     }
 }
