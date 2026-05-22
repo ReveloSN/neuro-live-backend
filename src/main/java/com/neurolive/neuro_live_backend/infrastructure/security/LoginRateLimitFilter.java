@@ -1,5 +1,6 @@
 package com.neurolive.neuro_live_backend.infrastructure.security;
 
+import com.neurolive.neuro_live_backend.infrastructure.web.ClientIpResolver;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,14 +20,14 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
     private static final int MAX_ATTEMPTS = 10;
     private static final long WINDOW_MS = 60_000L;
 
-    private final ConcurrentHashMap<String, long[]> buckets = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, AttemptBucket> buckets = new ConcurrentHashMap<>();
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
         if ("POST".equalsIgnoreCase(request.getMethod()) && "/auth/login".equals(request.getRequestURI())) {
-            String ip = request.getRemoteAddr();
+            String ip = ClientIpResolver.resolve(request);
             if (isRateLimited(ip)) {
                 response.setStatus(429);
                 response.setContentType("application/json;charset=UTF-8");
@@ -41,13 +42,23 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
 
     private boolean isRateLimited(String ip) {
         long now = System.currentTimeMillis();
-        long[] bucket = buckets.compute(ip, (k, v) -> {
-            if (v == null || now - v[1] > WINDOW_MS) {
-                return new long[]{1, now};
+        AttemptBucket bucket = buckets.compute(ip, (k, v) -> v == null
+                ? new AttemptBucket(1, now)
+                : v.increment(now));
+        return bucket.exceedsLimit();
+    }
+
+    private record AttemptBucket(long attempts, long windowStartedAt) {
+
+        AttemptBucket increment(long now) {
+            if (now - windowStartedAt > WINDOW_MS) {
+                return new AttemptBucket(1, now);
             }
-            v[0]++;
-            return v;
-        });
-        return bucket[0] > MAX_ATTEMPTS;
+            return new AttemptBucket(attempts + 1, windowStartedAt);
+        }
+
+        boolean exceedsLimit() {
+            return attempts > MAX_ATTEMPTS;
+        }
     }
 }
