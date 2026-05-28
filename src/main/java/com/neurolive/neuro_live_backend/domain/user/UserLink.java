@@ -62,6 +62,9 @@ public class UserLink {
     @Column(name = "consumed_at")
     private LocalDateTime consumedAt;
 
+    @Column(name = "revoked_at")
+    private LocalDateTime revokedAt;
+
     public UserLink(Patient patient) {
         this.patient = validatePatient(patient);
         this.status = StatusEnum.PENDING;
@@ -145,7 +148,12 @@ public class UserLink {
     }
 
     public void revoke() {
+        revoke(LocalDateTime.now());
+    }
+
+    public void revoke(LocalDateTime revokedAt) {
         status = StatusEnum.REVOKED;
+        this.revokedAt = revokedAt == null ? LocalDateTime.now() : revokedAt;
     }
 
     @PrePersist

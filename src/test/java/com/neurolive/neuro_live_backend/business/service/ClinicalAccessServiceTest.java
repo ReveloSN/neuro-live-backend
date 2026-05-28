@@ -82,6 +82,17 @@ class ClinicalAccessServiceTest {
     }
 
     @Test
+    void requirePatientAccess_shouldRejectDoctorAfterLinkRevocation() {
+        Doctor doctor = buildDoctor(20L);
+        when(userRepository.findByEmail("doctor20@test.com")).thenReturn(Optional.of(doctor));
+        when(userLinkRepository.existsByPatient_IdAndLinkedUser_IdAndStatus(10L, 20L, StatusEnum.ACTIVE))
+                .thenReturn(false);
+
+        assertThrows(UnauthorizedAccessException.class,
+                () -> clinicalAccessService.requirePatientAccess("doctor20@test.com", 10L));
+    }
+
+    @Test
     void requirePatientAccess_shouldAllowCaregiverWithActiveLink() {
         Caregiver caregiver = buildCaregiver(30L);
         when(userRepository.findByEmail("caregiver30@test.com")).thenReturn(Optional.of(caregiver));

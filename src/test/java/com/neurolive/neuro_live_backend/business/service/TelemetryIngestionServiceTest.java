@@ -111,6 +111,27 @@ class TelemetryIngestionServiceTest {
     }
 
     @Test
+    void findLatestForPatientShouldReturnMostRecentPersistedTelemetry() {
+        BiometricTelemetrySample latestSample = BiometricTelemetrySample.from(
+                81L,
+                "AA:BB:CC:DD:EE:41",
+                new BiometricData(91.0f, 96.0f, LocalDateTime.of(2026, 4, 2, 10, 1)),
+                "WARNING",
+                0.72f,
+                "Trend changed"
+        );
+        when(biometricTelemetrySampleRepository.findAllByPatientIdOrderByObservedAtDesc(
+                eq(81L),
+                any(org.springframework.data.domain.Pageable.class)
+        )).thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(latestSample)));
+
+        BiometricTelemetrySample result = telemetryIngestionService.findLatestForPatient(81L);
+
+        assertEquals(latestSample, result);
+        assertEquals("WARNING", result.getPredictionState());
+    }
+
+    @Test
     void shouldUpdateDeviceStatusOnValidTelemetry() {
         TelemetryPayload payload = buildPayload(82L, "AA:BB:CC:DD:EE:42", 90.0f, 97.0f, LocalDateTime.of(2026, 4, 2, 10, 5));
         Device device = buildDevice(82L, payload.deviceMac());

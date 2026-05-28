@@ -14,6 +14,7 @@ import com.neurolive.neuro_live_backend.presentation.dto.ActivationThresholdResp
 import com.neurolive.neuro_live_backend.presentation.dto.BaselineResponseDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.BiometricDataDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.BiometricIngestionResponseDTO;
+import com.neurolive.neuro_live_backend.presentation.dto.BiometricTelemetrySampleResponseDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.KeystrokeCaptureResponseDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.KeystrokeDynamicsDTO;
 import jakarta.servlet.http.HttpServletRequest;
@@ -97,6 +98,19 @@ public class BiometricController {
         User requester = clinicalAccessService.requirePatientAccess(authentication.getName(), patientId);
         auditLogService.record(requester.getId(), "READ_BASELINE", patientId, ControllerSupport.resolveIp(httpServletRequest));
         return ResponseEntity.ok(BaselineResponseDTO.from(baseLineService.findByPatientId(patientId)));
+    }
+
+    // Devuelve la ultima telemetria persistida para dashboards REST.
+    @GetMapping("/patients/{patientId}/telemetry/latest")
+    public ResponseEntity<BiometricTelemetrySampleResponseDTO> getLatestTelemetry(
+            Authentication authentication,
+            @PathVariable Long patientId,
+            HttpServletRequest httpServletRequest) {
+        User requester = clinicalAccessService.requirePatientAccess(authentication.getName(), patientId);
+        auditLogService.record(requester.getId(), "READ_LATEST_TELEMETRY", patientId, ControllerSupport.resolveIp(httpServletRequest));
+        return ResponseEntity.ok(
+                BiometricTelemetrySampleResponseDTO.from(telemetryIngestionService.findLatestForPatient(patientId))
+        );
     }
 
     @PostMapping("/patients/{patientId}/thresholds")

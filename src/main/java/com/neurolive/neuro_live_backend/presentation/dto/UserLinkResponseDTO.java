@@ -12,7 +12,8 @@ public record UserLinkResponseDTO(
         String status,
         LocalDateTime createdAt,
         LocalDateTime expiresAt,
-        LocalDateTime consumedAt
+        LocalDateTime consumedAt,
+        LocalDateTime revokedAt
 ) {
 
     public static UserLinkResponseDTO from(UserLink userLink) {
@@ -24,7 +25,8 @@ public record UserLinkResponseDTO(
                 userLink.getStatus().name(),
                 userLink.getCreatedAt(),
                 userLink.getExpiresAt(),
-                userLink.getConsumedAt()
+                userLink.getConsumedAt(),
+                userLink.getRevokedAt()
         );
     }
 }

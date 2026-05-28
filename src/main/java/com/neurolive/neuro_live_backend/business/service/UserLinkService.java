@@ -121,6 +121,22 @@ public class UserLinkService {
         return userLinkRepository.save(userLink);
     }
 
+    public UserLink revokeForRequester(String requesterEmail, Long linkId, String ipOrigin) {
+        User requester = resolveCurrentUser(requesterEmail);
+        UserLink userLink = userLinkRepository.findById(linkId)
+                .orElseThrow(() -> new EntityNotFoundException("User link not found"));
+
+        if (!isLinkParticipant(requester, userLink)) {
+            throw new UnauthorizedAccessException("User cannot revoke a link where they are not involved");
+        }
+
+        // Revoca el vinculo sin borrar usuarios, telemetria ni historia clinica.
+        userLink.revoke(LocalDateTime.now());
+        UserLink savedLink = userLinkRepository.save(userLink);
+        auditLogService.record(requester.getId(), "REVOKE_USER_LINK", userLink.getPatientId(), normalizeIp(ipOrigin));
+        return savedLink;
+    }
+
     @Transactional(readOnly = true)
     public boolean hasActiveLink(Long patientId, Long linkedUserId) {
         return userLinkRepository.existsByPatient_IdAndLinkedUser_IdAndStatus(patientId, linkedUserId, StatusEnum.ACTIVE);
@@ -178,6 +194,12 @@ public class UserLinkService {
     private void revokePendingTokens(Long patientId) {
         userLinkRepository.findAllByPatient_IdAndStatusOrderByCreatedAtDesc(patientId, StatusEnum.PENDING)
                 .forEach(UserLink::revoke);
+    }
+
+    private boolean isLinkParticipant(User requester, UserLink userLink) {
+        return requester.getId() != null
+                && (requester.getId().equals(userLink.getPatientId())
+                        || requester.getId().equals(userLink.getLinkedUserId()));
     }
 
     private Duration validateTokenLifetime(long tokenExpirationMinutes) {
