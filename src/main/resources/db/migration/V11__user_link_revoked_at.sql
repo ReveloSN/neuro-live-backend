@@ -1,0 +1,2 @@
+ALTER TABLE IF EXISTS user_links
+    ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMP;
