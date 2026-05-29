@@ -1,6 +1,6 @@
 package com.neurolive.neuro_live_backend.domain.biometric;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 // Representa un comando listo para enviarse a un dispositivo.
 public record DeviceCommand(
@@ -8,7 +8,7 @@ public record DeviceCommand(
         String macAddress,
         Long patientId,
         String command,
-        LocalDateTime dispatchedAt,
+        Instant dispatchedAt,
         String fallBackConfig
 ) {
 }

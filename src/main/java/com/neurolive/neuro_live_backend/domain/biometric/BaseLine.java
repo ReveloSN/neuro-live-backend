@@ -11,7 +11,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -43,7 +43,7 @@ public class BaseLine {
     private float avgSpo2;
 
     @Column(name = "calculated_at")
-    private LocalDateTime calculatedAt;
+    private Instant calculatedAt;
 
     public BaseLine(Long patientId) {
         this.patientId = validatePatientId(patientId);
@@ -98,7 +98,7 @@ public class BaseLine {
         );
     }
 
-    BaseLine applyCalculation(float avgBpm, float avgSpo2, LocalDateTime calculatedAt) {
+    BaseLine applyCalculation(float avgBpm, float avgSpo2, Instant calculatedAt) {
         validateCalculatedMetric(avgBpm, "Average BPM");
         validateCalculatedMetric(avgSpo2, "Average SpO2");
         if (calculatedAt == null) {
@@ -136,7 +136,7 @@ public class BaseLine {
             return List.of();
         }
 
-        LocalDateTime baselineWindowEnd = samples.getFirst().timestamp().plus(baselineWindow);
+        Instant baselineWindowEnd = samples.getFirst().timestamp().plus(baselineWindow);
 
         return samples.stream()
                 .filter(sample -> !sample.timestamp().isAfter(baselineWindowEnd))
@@ -148,7 +148,7 @@ public class BaseLine {
             return false;
         }
 
-        LocalDateTime baselineWindowEnd = baselineWindowSamples.getFirst().timestamp().plus(baselineWindow);
+        Instant baselineWindowEnd = baselineWindowSamples.getFirst().timestamp().plus(baselineWindow);
         return !baselineWindowSamples.getLast().timestamp().isBefore(baselineWindowEnd);
     }
 

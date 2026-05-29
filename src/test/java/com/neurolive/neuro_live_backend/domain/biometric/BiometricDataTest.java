@@ -2,7 +2,7 @@ package com.neurolive.neuro_live_backend.domain.biometric;
 
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -13,7 +13,7 @@ class BiometricDataTest {
 
     @Test
     void shouldCreateWithValidValues() {
-        LocalDateTime ts = LocalDateTime.of(2026, 3, 10, 8, 0);
+        Instant ts = Instant.parse("2026-03-10T08:00:00Z");
         BiometricData data = new BiometricData(80f, 98f, ts);
 
         assertEquals(80f, data.bpm());
@@ -24,25 +24,25 @@ class BiometricDataTest {
     @Test
     void shouldRejectNegativeBpm() {
         assertThrows(IllegalArgumentException.class,
-                () -> new BiometricData(-1f, 98f, LocalDateTime.now()));
+                () -> new BiometricData(-1f, 98f, Instant.now()));
     }
 
     @Test
     void shouldRejectNegativeSpo2() {
         assertThrows(IllegalArgumentException.class,
-                () -> new BiometricData(80f, -0.1f, LocalDateTime.now()));
+                () -> new BiometricData(80f, -0.1f, Instant.now()));
     }
 
     @Test
     void shouldRejectInfiniteBpm() {
         assertThrows(IllegalArgumentException.class,
-                () -> new BiometricData(Float.POSITIVE_INFINITY, 98f, LocalDateTime.now()));
+                () -> new BiometricData(Float.POSITIVE_INFINITY, 98f, Instant.now()));
     }
 
     @Test
     void shouldRejectNaNSpo2() {
         assertThrows(IllegalArgumentException.class,
-                () -> new BiometricData(80f, Float.NaN, LocalDateTime.now()));
+                () -> new BiometricData(80f, Float.NaN, Instant.now()));
     }
 
     @Test

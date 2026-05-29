@@ -1,7 +1,7 @@
 package com.neurolive.neuro_live_backend.presentation.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 // Representa la telemetria que entra al pipeline de negocio.
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -10,7 +10,7 @@ public record TelemetryPayload(
         String deviceMac,
         Float bpm,
         Float spo2,
-        LocalDateTime observedAt,
+        Instant observedAt,
         Boolean sensorContact,
         String predictionState,
         Float predictionConfidence,
@@ -22,7 +22,7 @@ public record TelemetryPayload(
                             String deviceMac,
                             Float bpm,
                             Float spo2,
-                            LocalDateTime observedAt) {
+                            Instant observedAt) {
         this(patientId, deviceMac, bpm, spo2, observedAt, null, null, null, null);
     }
 
@@ -31,7 +31,7 @@ public record TelemetryPayload(
                             String deviceMac,
                             Float bpm,
                             Float spo2,
-                            LocalDateTime observedAt,
+                            Instant observedAt,
                             Boolean sensorContact) {
         this(patientId, deviceMac, bpm, spo2, observedAt, sensorContact, null, null, null);
     }

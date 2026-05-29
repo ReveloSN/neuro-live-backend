@@ -2,7 +2,7 @@ package com.neurolive.neuro_live_backend.presentation.dto;
 
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricTelemetrySample;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 // Expone la muestra cruda mas reciente sin datos sensibles ni tokens.
 public record BiometricTelemetrySampleResponseDTO(
@@ -11,7 +11,7 @@ public record BiometricTelemetrySampleResponseDTO(
         String deviceMac,
         float bpm,
         float spo2,
-        LocalDateTime observedAt,
+        Instant observedAt,
         String predictionState,
         Float predictionConfidence,
         String predictionReasoning

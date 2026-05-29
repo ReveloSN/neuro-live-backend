@@ -1,12 +1,12 @@
 package com.neurolive.neuro_live_backend.domain.biometric;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 // Representa una muestra puntual de signos biometricos del paciente.
 public record BiometricData(
         float bpm,
         float spo2,
-        LocalDateTime timestamp
+        Instant timestamp
 ) {
 
     public BiometricData {

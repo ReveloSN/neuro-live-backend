@@ -4,7 +4,7 @@ import com.neurolive.neuro_live_backend.domain.biometric.BaseLine;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricData;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -97,7 +97,7 @@ class PatientStateObserverTest {
         crisisMediator.subscribe(firstObserver);
         crisisMediator.subscribe(secondObserver);
 
-        PatientStateUpdate update = PatientStateUpdate.caregiverDisconnectAlert(66L, LocalDateTime.of(2026, 4, 1, 17, 0));
+        PatientStateUpdate update = PatientStateUpdate.caregiverDisconnectAlert(66L, Instant.parse("2026-04-01T17:00:00Z"));
         crisisMediator.publishUpdate(update);
 
         assertEquals(1, firstObserver.updates().size());
@@ -118,7 +118,7 @@ class PatientStateObserverTest {
         BaseLine baseLine = buildReadyBaseLine(patientId, 80.0f, 98.0f);
         return new CrisisMediator.CrisisEvaluationInput(
                 patientId,
-                new BiometricData(82.0f, 98.0f, LocalDateTime.of(2026, 4, 1, 16, 0)),
+                new BiometricData(82.0f, 98.0f, Instant.parse("2026-04-01T16:00:00Z")),
                 baseLine,
                 null,
                 null);
@@ -128,7 +128,7 @@ class PatientStateObserverTest {
         BaseLine baseLine = buildReadyBaseLine(patientId, 80.0f, 98.0f);
         return new CrisisMediator.CrisisEvaluationInput(
                 patientId,
-                new BiometricData(96.0f, 96.0f, LocalDateTime.of(2026, 4, 1, 16, 5)),
+                new BiometricData(96.0f, 96.0f, Instant.parse("2026-04-01T16:05:00Z")),
                 baseLine,
                 null,
                 null);
@@ -138,7 +138,7 @@ class PatientStateObserverTest {
         BaseLine baseLine = buildReadyBaseLine(patientId, 80.0f, 98.0f);
         return new CrisisMediator.CrisisEvaluationInput(
                 patientId,
-                new BiometricData(84.0f, 97.0f, LocalDateTime.of(2026, 4, 1, 16, 10)),
+                new BiometricData(84.0f, 97.0f, Instant.parse("2026-04-01T16:10:00Z")),
                 baseLine,
                 null,
                 0.30f);
@@ -146,15 +146,15 @@ class PatientStateObserverTest {
 
     private BaseLine buildReadyBaseLine(Long patientId, float avgBpm, float avgSpo2) {
         BaseLine baseLine = new BaseLine(patientId);
-        LocalDateTime sessionStart = LocalDateTime.of(2026, 4, 1, 9, 0);
+        Instant sessionStart = Instant.parse("2026-04-01T09:00:00Z");
 
         baseLine.calculate(List.of(
                 new BiometricData(avgBpm, avgSpo2, sessionStart),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(1)),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(2)),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(3)),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(4)),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(5))
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(60)),
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(120)),
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(180)),
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(240)),
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(300))
         ));
 
         return baseLine;

@@ -2,7 +2,7 @@ package com.neurolive.neuro_live_backend.presentation.dto;
 
 import com.neurolive.neuro_live_backend.domain.biometric.Device;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 // Devuelve el token de aprovisionamiento una sola vez al vincular el dispositivo.
 public record DeviceProvisioningResponseDTO(
@@ -10,8 +10,8 @@ public record DeviceProvisioningResponseDTO(
         Long patientId,
         String macAddress,
         Boolean connected,
-        LocalDateTime linkedAt,
-        LocalDateTime lastConnection,
+        Instant linkedAt,
+        Instant lastConnection,
         Boolean sensorContact,
         String fallBackConfig,
         String deviceToken

@@ -2,7 +2,7 @@ package com.neurolive.neuro_live_backend.presentation.dto;
 
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricTelemetrySample;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record BiometricTelemetryLatestResponseDTO(
         Long sampleId,
@@ -11,8 +11,8 @@ public record BiometricTelemetryLatestResponseDTO(
         float bpm,
         float spo2,
         Boolean sensorConnected,
-        LocalDateTime observedAt,
-        LocalDateTime receivedAt,
+        Instant observedAt,
+        Instant receivedAt,
         String predictionState,
         Float predictionConfidence,
         String predictionReasoning

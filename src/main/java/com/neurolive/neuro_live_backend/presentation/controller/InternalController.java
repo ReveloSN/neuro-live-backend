@@ -6,9 +6,9 @@ import com.neurolive.neuro_live_backend.business.service.TelemetryIngestionServi
 import com.neurolive.neuro_live_backend.presentation.dto.TelemetryPayload;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -113,7 +113,7 @@ public class InternalController {
         Float bpm = body.get("bpm") != null ? ((Number) body.get("bpm")).floatValue() : null;
         Float spo2 = body.get("spo2") != null ? ((Number) body.get("spo2")).floatValue() : null;
         Boolean sensorContact = body.get("sensorConnected") instanceof Boolean sensorConnected ? sensorConnected : null;
-        LocalDateTime observedAt = resolveObservedAt(body);
+        Instant observedAt = resolveObservedAt(body);
         String predictionState = body.get("predictionState") instanceof String value ? value : null;
         Float predictionConfidence = body.get("predictionConfidence") instanceof Number value
                 ? value.floatValue()
@@ -145,15 +145,19 @@ public class InternalController {
     }
 
     // Resuelve una fecha util usando receivedAt si fue enviada.
-    private LocalDateTime resolveObservedAt(Map<String, Object> body) {
+    private Instant resolveObservedAt(Map<String, Object> body) {
         Object receivedAt = body.get("receivedAt");
         if (receivedAt instanceof String value && !value.isBlank()) {
             try {
-                return OffsetDateTime.parse(value).atZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime();
-            } catch (Exception ignored) {
-                // Mantiene un fallback simple si el timestamp no puede parsearse.
+                return OffsetDateTime.parse(value).toInstant();
+            } catch (DateTimeParseException ignored) {
+                try {
+                    return Instant.parse(value);
+                } catch (DateTimeParseException parseException) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid receivedAt format");
+                }
             }
         }
-        return LocalDateTime.now();
+        return Instant.now();
     }
 }

@@ -17,7 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Field;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -167,7 +167,7 @@ class DeviceServiceTest {
         device.register(6L, "AA:BB:CC:DD:EE:01", null);
         when(deviceRepository.findByMacAddress("AA:BB:CC:DD:EE:01")).thenReturn(Optional.of(device));
         when(deviceRepository.save(device)).thenReturn(device);
-        LocalDateTime telemetryTime = LocalDateTime.of(2026, 3, 27, 12, 0);
+        Instant telemetryTime = Instant.parse("2026-03-27T12:00:00Z");
 
         Device updatedDevice = deviceService.registerTelemetry("aa-bb-cc-dd-ee-01", telemetryTime);
 
@@ -181,7 +181,7 @@ class DeviceServiceTest {
         device.register(61L, "AA:BB:CC:DD:EE:61", null);
         when(deviceRepository.findByMacAddress("AA:BB:CC:DD:EE:61")).thenReturn(Optional.of(device));
         when(deviceRepository.save(device)).thenReturn(device);
-        LocalDateTime telemetryTime = LocalDateTime.of(2026, 4, 9, 18, 0);
+        Instant telemetryTime = Instant.parse("2026-04-09T18:00:00Z");
 
         Device updatedDevice = deviceService.registerTelemetry("AA:BB:CC:DD:EE:61", telemetryTime, Boolean.FALSE);
 
@@ -194,15 +194,15 @@ class DeviceServiceTest {
     void detectDisconnectShouldSaveOnlyDisconnectedDevices() {
         Device staleDevice = new Device();
         staleDevice.register(8L, "AA:BB:CC:DD:EE:10", null);
-        staleDevice.updateStatus(true, LocalDateTime.of(2026, 3, 27, 9, 0));
+        staleDevice.updateStatus(true, Instant.parse("2026-03-27T09:00:00Z"));
 
         Device freshDevice = new Device();
         freshDevice.register(8L, "AA:BB:CC:DD:EE:11", null);
-        freshDevice.updateStatus(true, LocalDateTime.of(2026, 3, 27, 9, 59));
+        freshDevice.updateStatus(true, Instant.parse("2026-03-27T09:59:00Z"));
 
         when(deviceRepository.findAllByIsConnectedTrue()).thenReturn(List.of(staleDevice, freshDevice));
         when(deviceRepository.save(staleDevice)).thenReturn(staleDevice);
-        LocalDateTime referenceTime = LocalDateTime.of(2026, 3, 27, 10, 0);
+        Instant referenceTime = Instant.parse("2026-03-27T10:00:00Z");
 
         List<Device> disconnectedDevices = deviceService.detectDisconnect(90L, referenceTime);
 
@@ -220,7 +220,7 @@ class DeviceServiceTest {
         device.register(9L, "AA:BB:CC:DD:EE:20", "fallback");
         setId(device, 55L);
         when(deviceRepository.findById(55L)).thenReturn(Optional.of(device));
-        LocalDateTime dispatchedAt = LocalDateTime.of(2026, 3, 27, 14, 30);
+        Instant dispatchedAt = Instant.parse("2026-03-27T14:30:00Z");
 
         DeviceCommand command = deviceService.sendCommand(55L, "START_GROUNDING", dispatchedAt);
 

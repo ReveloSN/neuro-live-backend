@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,7 +25,7 @@ class BiometricTelemetrySampleRepositoryTest {
         BiometricTelemetrySample earlier = BiometricTelemetrySample.from(
                 7L,
                 "AA:BB:CC:DD:EE:FF",
-                new BiometricData(90.0f, 97.0f, LocalDateTime.of(2026, 5, 29, 0, 10)),
+                new BiometricData(90.0f, 97.0f, Instant.parse("2026-05-29T00:10:00Z")),
                 Boolean.FALSE,
                 "WARNING",
                 0.8f,
@@ -34,7 +34,7 @@ class BiometricTelemetrySampleRepositoryTest {
         BiometricTelemetrySample latest = BiometricTelemetrySample.from(
                 7L,
                 "AA:BB:CC:DD:EE:FF",
-                new BiometricData(95.0f, 98.0f, LocalDateTime.of(2026, 5, 29, 0, 15)),
+                new BiometricData(95.0f, 98.0f, Instant.parse("2026-05-29T00:15:00Z")),
                 Boolean.TRUE,
                 "INSUFFICIENT_DATA",
                 0.2f,

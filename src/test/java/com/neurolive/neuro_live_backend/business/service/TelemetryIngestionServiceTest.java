@@ -27,7 +27,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Field;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -85,7 +87,7 @@ class TelemetryIngestionServiceTest {
 
     @Test
     void shouldPersistValidTelemetry() {
-        TelemetryPayload payload = buildPayload(81L, "AA:BB:CC:DD:EE:41", 88.0f, 97.0f, LocalDateTime.of(2026, 4, 2, 10, 0));
+        TelemetryPayload payload = buildPayload(81L, "AA:BB:CC:DD:EE:41", 88.0f, 97.0f, Instant.parse("2026-04-02T10:00:00Z"));
         Device device = buildDevice(81L, payload.deviceMac());
         BaseLine baseLine = buildReadyBaseLine(81L, 80.0f, 98.0f);
         BiometricTelemetrySample storedSample = BiometricTelemetrySample.from(payload.patientId(), payload.deviceMac(), toDomain(payload));
@@ -93,7 +95,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(Instant.class), any(Instant.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -115,7 +117,7 @@ class TelemetryIngestionServiceTest {
         BiometricTelemetrySample latestSample = BiometricTelemetrySample.from(
                 81L,
                 "AA:BB:CC:DD:EE:41",
-                new BiometricData(91.0f, 96.0f, LocalDateTime.of(2026, 4, 2, 10, 1)),
+                new BiometricData(91.0f, 96.0f, Instant.parse("2026-04-02T10:01:00Z")),
                 "WARNING",
                 0.72f,
                 "Trend changed"
@@ -133,7 +135,7 @@ class TelemetryIngestionServiceTest {
 
     @Test
     void shouldUpdateDeviceStatusOnValidTelemetry() {
-        TelemetryPayload payload = buildPayload(82L, "AA:BB:CC:DD:EE:42", 90.0f, 97.0f, LocalDateTime.of(2026, 4, 2, 10, 5));
+        TelemetryPayload payload = buildPayload(82L, "AA:BB:CC:DD:EE:42", 90.0f, 97.0f, Instant.parse("2026-04-02T10:05:00Z"));
         Device device = buildDevice(82L, payload.deviceMac());
         BaseLine baseLine = buildReadyBaseLine(82L, 80.0f, 98.0f);
         BiometricTelemetrySample storedSample = BiometricTelemetrySample.from(payload.patientId(), payload.deviceMac(), toDomain(payload));
@@ -141,7 +143,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(Instant.class), any(Instant.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -158,7 +160,7 @@ class TelemetryIngestionServiceTest {
 
     @Test
     void shouldCallCrisisMediatorWithBaselineThresholdContext() {
-        TelemetryPayload payload = buildPayload(83L, "AA:BB:CC:DD:EE:43", 98.0f, 96.0f, LocalDateTime.of(2026, 4, 2, 10, 10));
+        TelemetryPayload payload = buildPayload(83L, "AA:BB:CC:DD:EE:43", 98.0f, 96.0f, Instant.parse("2026-04-02T10:10:00Z"));
         Device device = buildDevice(83L, payload.deviceMac());
         BaseLine baseLine = buildReadyBaseLine(83L, 80.0f, 98.0f);
         ActivationThreshold activationThreshold = new ActivationThreshold(null, 95.0f, null, null);
@@ -167,7 +169,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(Instant.class), any(Instant.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(activationThreshold);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -195,7 +197,7 @@ class TelemetryIngestionServiceTest {
                 "AA:BB:CC:DD:EE:83",
                 88.0f,
                 97.0f,
-                LocalDateTime.of(2026, 4, 2, 10, 12),
+                Instant.parse("2026-04-02T10:12:00Z"),
                 Boolean.TRUE,
                 "PRE_CRISIS",
                 0.82f,
@@ -208,7 +210,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), Boolean.TRUE)).thenReturn(device);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(Instant.class), any(Instant.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -233,7 +235,7 @@ class TelemetryIngestionServiceTest {
                 "AA:BB:CC:DD:EE:86",
                 91.0f,
                 96.0f,
-                LocalDateTime.of(2026, 4, 2, 10, 13),
+                Instant.parse("2026-04-02T10:13:00Z"),
                 Boolean.TRUE,
                 "warning",
                 1.4f,
@@ -246,7 +248,7 @@ class TelemetryIngestionServiceTest {
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), Boolean.TRUE)).thenReturn(device);
         when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(
-                eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(
+                eq(payload.patientId()), any(Instant.class), any(Instant.class))).thenReturn(List.of(
                 BiometricTelemetrySample.from(payload.patientId(), payload.deviceMac(), toDomain(payload), "WARNING", 1.0f, "x".repeat(512))
         ));
         when(baseLineService.updateFromTelemetry(any(), any())).thenReturn(baseLine);
@@ -270,7 +272,7 @@ class TelemetryIngestionServiceTest {
 
     @Test
     void shouldStillPersistDataWhenBaselineIsNotReady() {
-        TelemetryPayload payload = buildPayload(84L, "AA:BB:CC:DD:EE:44", 84.0f, 98.0f, LocalDateTime.of(2026, 4, 2, 10, 15));
+        TelemetryPayload payload = buildPayload(84L, "AA:BB:CC:DD:EE:44", 84.0f, 98.0f, Instant.parse("2026-04-02T10:15:00Z"));
         Device device = buildDevice(84L, payload.deviceMac());
         BaseLine baseLine = new BaseLine(84L);
         BiometricTelemetrySample storedSample = BiometricTelemetrySample.from(payload.patientId(), payload.deviceMac(), toDomain(payload));
@@ -278,7 +280,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(Instant.class), any(Instant.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -299,7 +301,7 @@ class TelemetryIngestionServiceTest {
                 "AA:BB:CC:DD:EE:84",
                 84.0f,
                 98.0f,
-                LocalDateTime.of(2026, 4, 2, 10, 16),
+                Instant.parse("2026-04-02T10:16:00Z"),
                 Boolean.FALSE
         );
         Device device = buildDevice(840L, payload.deviceMac());
@@ -311,7 +313,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), Boolean.FALSE)).thenReturn(updatedDevice);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(Instant.class), any(Instant.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -329,9 +331,9 @@ class TelemetryIngestionServiceTest {
 
     @Test
     void shouldNotifyCaregiverWhenTelemetryReconnectsDevice() {
-        TelemetryPayload payload = buildPayload(841L, "AA:BB:CC:DD:EE:85", 84.0f, 98.0f, LocalDateTime.of(2026, 4, 2, 10, 17));
+        TelemetryPayload payload = buildPayload(841L, "AA:BB:CC:DD:EE:85", 84.0f, 98.0f, Instant.parse("2026-04-02T10:17:00Z"));
         Device device = buildDevice(841L, payload.deviceMac());
-        device.updateStatus(false, LocalDateTime.of(2026, 4, 2, 10, 10));
+        device.updateStatus(false, Instant.parse("2026-04-02T10:10:00Z"));
         Device updatedDevice = buildDevice(841L, payload.deviceMac());
         updatedDevice.recordTelemetry(payload.observedAt(), Boolean.TRUE);
         BaseLine baseLine = new BaseLine(841L);
@@ -340,7 +342,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(updatedDevice);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(Instant.class), any(Instant.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -359,7 +361,7 @@ class TelemetryIngestionServiceTest {
 
     @Test
     void shouldRejectInvalidTelemetry() {
-        TelemetryPayload payload = new TelemetryPayload(null, "AA:BB:CC:DD:EE:45", 80.0f, 97.0f, LocalDateTime.now());
+        TelemetryPayload payload = new TelemetryPayload(null, "AA:BB:CC:DD:EE:45", 80.0f, 97.0f, Instant.now());
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
@@ -372,7 +374,7 @@ class TelemetryIngestionServiceTest {
 
     @Test
     void shouldRejectTelemetryWithoutConsentBeforePersistingSample() {
-        TelemetryPayload payload = buildPayload(843L, "AA:BB:CC:DD:EE:88", 80.0f, 97.0f, LocalDateTime.now());
+        TelemetryPayload payload = buildPayload(843L, "AA:BB:CC:DD:EE:88", 80.0f, 97.0f, Instant.now());
         doThrow(new IllegalStateException("Biometric consent is required before monitoring starts"))
                 .when(monitoringConsentService)
                 .assertMonitoringAllowed(843L);
@@ -394,7 +396,7 @@ class TelemetryIngestionServiceTest {
                 "AA:BB:CC:DD:EE:87",
                 280.0f,
                 130.0f,
-                LocalDateTime.now(),
+                Instant.now(),
                 Boolean.TRUE,
                 "DANGEROUS_UNKNOWN",
                 0.4f,
@@ -412,7 +414,7 @@ class TelemetryIngestionServiceTest {
 
     @Test
     void shouldPersistCrisisOutcomeWhenMediatorDetectsCrisis() {
-        TelemetryPayload payload = buildPayload(86L, "AA:BB:CC:DD:EE:47", 112.0f, 92.0f, LocalDateTime.of(2026, 4, 2, 10, 25));
+        TelemetryPayload payload = buildPayload(86L, "AA:BB:CC:DD:EE:47", 112.0f, 92.0f, Instant.parse("2026-04-02T10:25:00Z"));
         Device device = buildDevice(86L, payload.deviceMac());
         BaseLine baseLine = buildReadyBaseLine(86L, 80.0f, 98.0f);
         BiometricTelemetrySample storedSample = BiometricTelemetrySample.from(payload.patientId(), payload.deviceMac(), toDomain(payload));
@@ -421,7 +423,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(Instant.class), any(Instant.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -435,8 +437,55 @@ class TelemetryIngestionServiceTest {
     }
 
     @Test
+    void shouldPersistPredictedCrisisEvenWhenBaselineIsNotReady() {
+        TelemetryPayload payload = new TelemetryPayload(
+                88L,
+                "AA:BB:CC:DD:EE:49",
+                135.0f,
+                90.0f,
+                Instant.parse("2026-04-02T10:27:00Z"),
+                Boolean.TRUE,
+                "PRE_CRISIS",
+                0.91f,
+                "Predictive model detected crisis risk"
+        );
+        Device device = buildDevice(88L, payload.deviceMac());
+        BaseLine baseLine = new BaseLine(88L);
+        BiometricTelemetrySample storedSample = BiometricTelemetrySample.from(
+                payload.patientId(),
+                payload.deviceMac(),
+                toDomain(payload),
+                payload.sensorContact(),
+                payload.predictionState(),
+                payload.predictionConfidence(),
+                payload.predictionReasoning()
+        );
+        CrisisMediator.CrisisMediationResult mediationResult =
+                buildCrisisResult(payload.patientId(), payload.observedAt());
+
+        when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
+        when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
+        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), payload.sensorContact())).thenReturn(device);
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(Instant.class), any(Instant.class))).thenReturn(List.of(storedSample));
+        when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
+        when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
+        when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
+                new RiskAssessmentService.AssessmentSnapshot(null, null, null, null, StateEnum.NORMAL, "stable", "stable")
+        );
+        when(crisisMediator.mediate(any())).thenReturn(mediationResult);
+
+        telemetryIngestionService.ingest(payload);
+
+        ArgumentCaptor<CrisisMediator.CrisisEvaluationInput> inputCaptor =
+                ArgumentCaptor.forClass(CrisisMediator.CrisisEvaluationInput.class);
+        verify(crisisMediator).mediate(inputCaptor.capture());
+        assertEquals(StateEnum.ACTIVE_CRISIS, inputCaptor.getValue().analysisStateHint());
+        verify(crisisOutcomePersistenceService).persist(mediationResult);
+    }
+
+    @Test
     void shouldKeepTelemetryWhenCommandDeliveryFailsAfterCrisisPersistence() {
-        TelemetryPayload payload = buildPayload(87L, "AA:BB:CC:DD:EE:48", 112.0f, 92.0f, LocalDateTime.of(2026, 4, 2, 10, 26));
+        TelemetryPayload payload = buildPayload(87L, "AA:BB:CC:DD:EE:48", 112.0f, 92.0f, Instant.parse("2026-04-02T10:26:00Z"));
         Device device = buildDevice(87L, payload.deviceMac());
         BaseLine baseLine = buildReadyBaseLine(87L, 80.0f, 98.0f);
         BiometricTelemetrySample storedSample = BiometricTelemetrySample.from(payload.patientId(), payload.deviceMac(), toDomain(payload));
@@ -445,7 +494,7 @@ class TelemetryIngestionServiceTest {
         when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
-        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(Instant.class), any(Instant.class))).thenReturn(List.of(storedSample));
         when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -496,7 +545,7 @@ class TelemetryIngestionServiceTest {
                 localAnalysisProperties
         );
 
-        TelemetryPayload payload = buildPayload(85L, "AA:BB:CC:DD:EE:46", 96.0f, 96.0f, LocalDateTime.of(2026, 4, 2, 10, 20));
+        TelemetryPayload payload = buildPayload(85L, "AA:BB:CC:DD:EE:46", 96.0f, 96.0f, Instant.parse("2026-04-02T10:20:00Z"));
         Device device = buildDevice(85L, payload.deviceMac());
         BaseLine baseLine = buildReadyBaseLine(85L, 80.0f, 98.0f);
         BiometricTelemetrySample storedSample = BiometricTelemetrySample.from(payload.patientId(), payload.deviceMac(), toDomain(payload));
@@ -504,7 +553,7 @@ class TelemetryIngestionServiceTest {
         when(localDeviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
         when(sampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
         when(localDeviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
-        when(sampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(storedSample));
+        when(sampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(Instant.class), any(Instant.class))).thenReturn(List.of(storedSample));
         when(localBaseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
         when(localThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
         when(localRiskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
@@ -519,7 +568,7 @@ class TelemetryIngestionServiceTest {
         assertEquals(payload.patientId(), observer.updates().getFirst().patientId());
     }
 
-    private TelemetryPayload buildPayload(Long patientId, String deviceMac, Float bpm, Float spo2, LocalDateTime observedAt) {
+    private TelemetryPayload buildPayload(Long patientId, String deviceMac, Float bpm, Float spo2, Instant observedAt) {
         return new TelemetryPayload(patientId, deviceMac, bpm, spo2, observedAt);
     }
 
@@ -532,15 +581,15 @@ class TelemetryIngestionServiceTest {
 
     private BaseLine buildReadyBaseLine(Long patientId, float avgBpm, float avgSpo2) {
         BaseLine baseLine = new BaseLine(patientId);
-        LocalDateTime sessionStart = LocalDateTime.of(2026, 4, 2, 9, 0);
+        Instant sessionStart = Instant.parse("2026-04-02T09:00:00Z");
 
         baseLine.calculate(List.of(
                 new BiometricData(avgBpm, avgSpo2, sessionStart),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(1)),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(2)),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(3)),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(4)),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(5))
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(60)),
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(120)),
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(180)),
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(240)),
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(300))
         ));
 
         return baseLine;
@@ -550,13 +599,13 @@ class TelemetryIngestionServiceTest {
         return new BiometricData(payload.bpm(), payload.spo2(), payload.observedAt());
     }
 
-    private CrisisMediator.CrisisMediationResult buildCrisisResult(Long patientId, LocalDateTime startedAt) {
+    private CrisisMediator.CrisisMediationResult buildCrisisResult(Long patientId, Instant startedAt) {
         return CrisisMediator.CrisisMediationResult.crisisDetected(
                 EmotionalState.from(StateEnum.ACTIVE_CRISIS),
                 com.neurolive.neuro_live_backend.domain.crisis.CrisisEvent.open(
                         patientId,
                         StateEnum.ACTIVE_CRISIS,
-                        startedAt
+                        LocalDateTime.ofInstant(startedAt, ZoneOffset.UTC)
                 ),
                 com.neurolive.neuro_live_backend.domain.crisis.InterventionProtocol.builder(
                                 com.neurolive.neuro_live_backend.data.enums.TypeEnum.BREATHING

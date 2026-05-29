@@ -7,6 +7,7 @@ import com.neurolive.neuro_live_backend.domain.biometric.BaseLine;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricData;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricTelemetrySample;
 import com.neurolive.neuro_live_backend.domain.biometric.Device;
+import com.neurolive.neuro_live_backend.domain.crisis.CrisisEvent;
 import com.neurolive.neuro_live_backend.infrastructure.config.AnalysisProperties;
 import com.neurolive.neuro_live_backend.presentation.dto.TelemetryPayload;
 import com.neurolive.neuro_live_backend.repository.BiometricTelemetrySampleRepository;
@@ -17,9 +18,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -156,7 +159,7 @@ public class TelemetryIngestionService {
         }
 
         CrisisMediator.CrisisMediationResult crisisMediationResult = null;
-        if (baseLine.isReady() || hasUsableThreshold(activationThreshold)) {
+        if (shouldRunCrisisMediation(baseLine, activationThreshold, combinedState)) {
             crisisMediationResult = crisisMediator.mediate(
                     new CrisisMediator.CrisisEvaluationInput(
                             patientId,
@@ -169,9 +172,22 @@ public class TelemetryIngestionService {
                             assessmentSnapshot.errorCount(),
                             combinedState));
             if (crisisMediationResult.crisisDetected()) {
-                crisisOutcomePersistenceService.persist(crisisMediationResult);
+                Optional<CrisisEvent> persistedCrisis = crisisOutcomePersistenceService.persist(crisisMediationResult);
+                persistedCrisis.ifPresent(crisisEvent -> LOGGER.info(
+                        "Crisis outcome persisted patientId={} finalState={} crisisId={} interventionType={}",
+                        patientId,
+                        combinedState,
+                        crisisEvent.getId(),
+                        crisisEvent.getInterventionType()
+                ));
                 trySendInterventionCommand(updatedDevice, crisisMediationResult);
             }
+        } else {
+            LOGGER.debug(
+                    "Crisis mediation skipped patientId={} finalState={} reason=no_ready_baseline_or_active_threshold",
+                    patientId,
+                    combinedState
+            );
         }
 
         return new TelemetryIngestionResult(storedSample, updatedDevice, baseLine, crisisMediationResult);
@@ -190,7 +206,7 @@ public class TelemetryIngestionService {
 
     // Notifica al cuidador solo cuando cambia la conectividad o el contacto del sensor.
     private void publishDeviceConnectivityUpdateIfNeeded(Long patientId,
-                                                         LocalDateTime observedAt,
+                                                         Instant observedAt,
                                                          boolean wasConnected,
                                                          Boolean previousSensorContact,
                                                          Device updatedDevice) {
@@ -236,8 +252,8 @@ public class TelemetryIngestionService {
     }
 
     private List<BiometricData> loadPatientTelemetry(Long patientId) {
-        LocalDateTime windowStart = LocalDateTime.now().minus(analysisProperties.telemetryWindow());
-        LocalDateTime windowEnd = LocalDateTime.now();
+        Instant windowStart = Instant.now().minus(analysisProperties.telemetryWindow());
+        Instant windowEnd = Instant.now();
         return biometricTelemetrySampleRepository
                 .findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(patientId, windowStart, windowEnd)
                 .stream()
@@ -252,6 +268,15 @@ public class TelemetryIngestionService {
                         || activationThreshold.getBpmMax() != null
                         || activationThreshold.getSpo2Min() != null
                         || activationThreshold.getErrorRateMax() != null);
+    }
+
+    // Permite que una prediccion critica abra crisis incluso antes de completar baseline.
+    private boolean shouldRunCrisisMediation(BaseLine baseLine,
+                                             com.neurolive.neuro_live_backend.domain.biometric.ActivationThreshold activationThreshold,
+                                             StateEnum combinedState) {
+        return (baseLine != null && baseLine.isReady())
+                || hasUsableThreshold(activationThreshold)
+                || combinedState == StateEnum.ACTIVE_CRISIS;
     }
 
     private String buildCommand(com.neurolive.neuro_live_backend.domain.crisis.InterventionProtocol interventionProtocol) {
@@ -276,7 +301,7 @@ public class TelemetryIngestionService {
             deviceService.sendCommand(
                     updatedDevice.getId(),
                     buildCommand(crisisMediationResult.interventionProtocol()),
-                    LocalDateTime.now()
+                    Instant.now()
             );
         } catch (RuntimeException exception) {
             LOGGER.warn(
@@ -334,7 +359,7 @@ public class TelemetryIngestionService {
         return value;
     }
 
-    private LocalDateTime requireObservedAt(LocalDateTime observedAt) {
+    private Instant requireObservedAt(Instant observedAt) {
         if (observedAt == null) {
             throw new IllegalArgumentException("Telemetry observed time is required");
         }

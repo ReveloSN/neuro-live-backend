@@ -17,7 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import jakarta.persistence.EntityNotFoundException;
 import java.lang.reflect.Field;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -63,22 +63,22 @@ class BaseLineServiceTest {
             setId(baseLine, 40L);
             return baseLine;
         });
-        LocalDateTime sessionStart = LocalDateTime.of(2026, 3, 27, 10, 0);
+        Instant sessionStart = Instant.parse("2026-03-27T10:00:00Z");
 
         BaseLine savedBaseLine = baseLineService.calculate(5L, List.of(
                 new BiometricData(80.0f, 97.0f, sessionStart),
-                new BiometricData(82.0f, 98.0f, sessionStart.plusMinutes(1)),
-                new BiometricData(84.0f, 99.0f, sessionStart.plusMinutes(2)),
-                new BiometricData(86.0f, 98.0f, sessionStart.plusMinutes(3)),
-                new BiometricData(88.0f, 98.0f, sessionStart.plusMinutes(4)),
-                new BiometricData(90.0f, 99.0f, sessionStart.plusMinutes(5))
+                new BiometricData(82.0f, 98.0f, sessionStart.plusSeconds(60)),
+                new BiometricData(84.0f, 99.0f, sessionStart.plusSeconds(120)),
+                new BiometricData(86.0f, 98.0f, sessionStart.plusSeconds(180)),
+                new BiometricData(88.0f, 98.0f, sessionStart.plusSeconds(240)),
+                new BiometricData(90.0f, 99.0f, sessionStart.plusSeconds(300))
         ));
 
         assertEquals(40L, savedBaseLine.getId());
         assertTrue(savedBaseLine.isReady());
         assertEquals(85.0f, savedBaseLine.getAvgBpm(), 0.0001f);
         assertEquals(98.166664f, savedBaseLine.getAvgSpo2(), 0.0001f);
-        assertEquals(sessionStart.plusMinutes(5), savedBaseLine.getCalculatedAt());
+        assertEquals(sessionStart.plusSeconds(300), savedBaseLine.getCalculatedAt());
     }
 
     @Test
@@ -94,12 +94,12 @@ class BaseLineServiceTest {
             return baseLine;
         });
         when(baseLineRepository.save(any(BaseLine.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        LocalDateTime sessionStart = LocalDateTime.of(2026, 3, 27, 10, 0);
+        Instant sessionStart = Instant.parse("2026-03-27T10:00:00Z");
 
         BaseLine savedBaseLine = baseLineService.updateFromTelemetry(6L, List.of(
                 new BiometricData(79.0f, 98.0f, sessionStart),
-                new BiometricData(80.0f, 98.0f, sessionStart.plusMinutes(2)),
-                new BiometricData(81.0f, 98.0f, sessionStart.plusMinutes(4))
+                new BiometricData(80.0f, 98.0f, sessionStart.plusSeconds(120)),
+                new BiometricData(81.0f, 98.0f, sessionStart.plusSeconds(240))
         ));
 
         assertFalse(savedBaseLine.isReady());

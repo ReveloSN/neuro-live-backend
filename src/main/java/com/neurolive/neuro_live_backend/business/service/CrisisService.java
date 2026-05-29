@@ -240,8 +240,8 @@ public class CrisisService {
         List<BiometricTelemetrySample> telemetrySamples = biometricTelemetrySampleRepository
                 .findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(
                         patientId,
-                        dateRange.start(),
-                        dateRange.end());
+                        dateRange.start().atZone(java.time.ZoneId.systemDefault()).toInstant(),
+                        dateRange.end().atZone(java.time.ZoneId.systemDefault()).toInstant());
         auditLogService.record(requester.getId(), "READ_CLINICAL_AI_INSIGHT", patientId, ipOrigin);
         String insight = clinicalInsightService.generatePatientEvolutionInsight(
                 patientId,

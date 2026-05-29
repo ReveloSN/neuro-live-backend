@@ -2,13 +2,13 @@ package com.neurolive.neuro_live_backend.presentation.dto;
 
 import com.neurolive.neuro_live_backend.domain.biometric.BaseLine;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record BaselineResponseDTO(
         Long patientId,
         Float avgBpm,
         Float avgSpo2,
-        LocalDateTime calculatedAt,
+        Instant calculatedAt,
         boolean ready
 ) {
 

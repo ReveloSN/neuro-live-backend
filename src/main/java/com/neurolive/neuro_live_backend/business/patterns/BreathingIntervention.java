@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 public class BreathingIntervention implements InterventionStrategy {
 
     private static final float SPO2_CRISIS_DROP = 5.0f;
+    private static final float ABSOLUTE_LOW_SPO2 = 92.0f;
     private final Integer rhythm;
     private final Integer cycles;
 
@@ -38,6 +39,11 @@ public class BreathingIntervention implements InterventionStrategy {
                 && Boolean.TRUE.equals(activationThreshold.getActive())
                 && activationThreshold.getSpo2Min() != null) {
             return input.currentBiometricData().spo2() < activationThreshold.getSpo2Min();
+        }
+
+        // Activa respiracion guiada con hipoxemia aun si el baseline todavia no esta listo.
+        if (input.currentBiometricData().spo2() <= ABSOLUTE_LOW_SPO2) {
+            return true;
         }
 
         BaseLine baseLine = input.baseLine();

@@ -24,7 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.lang.reflect.Field;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -83,8 +83,8 @@ class BiometricControllerTest {
                 .andExpect(jsonPath("$.bpm").value(95.0))
                 .andExpect(jsonPath("$.spo2").value(98.0))
                 .andExpect(jsonPath("$.sensorConnected").value(true))
-                .andExpect(jsonPath("$.observedAt").value("2026-05-29T00:15:00"))
-                .andExpect(jsonPath("$.receivedAt").value("2026-05-29T00:15:00"))
+                .andExpect(jsonPath("$.observedAt").value("2026-05-29T00:15:00Z"))
+                .andExpect(jsonPath("$.receivedAt").value("2026-05-29T00:15:00Z"))
                 .andExpect(jsonPath("$.predictionState").value("INSUFFICIENT_DATA"))
                 .andExpect(jsonPath("$.predictionConfidence").value(0.2))
                 .andExpect(jsonPath("$.predictionReasoning").value("Manual direct backend test"));
@@ -98,7 +98,7 @@ class BiometricControllerTest {
         BiometricTelemetrySample latestSample = BiometricTelemetrySample.from(
                 220L,
                 "AA:BB:CC:DD:EE:20",
-                new BiometricData(94.0f, 97.0f, LocalDateTime.of(2026, 5, 22, 6, 0)),
+                new BiometricData(94.0f, 97.0f, Instant.parse("2026-05-22T06:00:00Z")),
                 Boolean.TRUE,
                 "STABLE",
                 0.61f,
@@ -175,7 +175,7 @@ class BiometricControllerTest {
         BiometricTelemetrySample sample = BiometricTelemetrySample.from(
                 7L,
                 "AA:BB:CC:DD:EE:FF",
-                new BiometricData(95.0f, 98.0f, LocalDateTime.of(2026, 5, 29, 0, 15)),
+                new BiometricData(95.0f, 98.0f, Instant.parse("2026-05-29T00:15:00Z")),
                 Boolean.TRUE,
                 "INSUFFICIENT_DATA",
                 0.2f,

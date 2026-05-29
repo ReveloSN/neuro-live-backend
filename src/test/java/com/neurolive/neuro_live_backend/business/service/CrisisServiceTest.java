@@ -10,6 +10,7 @@ import com.neurolive.neuro_live_backend.repository.BiometricTelemetrySampleRepos
 import com.neurolive.neuro_live_backend.repository.CrisisEventRepository;
 import com.neurolive.neuro_live_backend.repository.SAMResponseRepository;
 import java.lang.reflect.Field;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -56,7 +57,7 @@ class CrisisServiceTest {
         Doctor doctor = new Doctor();
         doctor.register("Doctor Test", "doctor@neurolive.test", "encoded-secret");
         setId(doctor, 701L);
-        LocalDateTime observedAt = LocalDateTime.now().minusDays(1);
+        Instant observedAt = Instant.now().minusSeconds(86400);
         BiometricTelemetrySample sample = BiometricTelemetrySample.from(
                 44L,
                 "AA:BB:CC:DD:EE:44",
@@ -71,8 +72,8 @@ class CrisisServiceTest {
         )).thenReturn(List.of());
         when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(
                 eq(44L),
-                any(LocalDateTime.class),
-                any(LocalDateTime.class)
+                any(Instant.class),
+                any(Instant.class)
         )).thenReturn(List.of(sample));
         when(clinicalInsightService.generatePatientEvolutionInsight(
                 eq(44L),
@@ -117,8 +118,8 @@ class CrisisServiceTest {
         )).thenReturn(List.of());
         when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(
                 eq(45L),
-                any(LocalDateTime.class),
-                any(LocalDateTime.class)
+                any(Instant.class),
+                any(Instant.class)
         )).thenReturn(List.of());
         when(clinicalInsightService.generatePatientEvolutionInsight(
                 eq(45L),
@@ -165,7 +166,7 @@ class CrisisServiceTest {
         when(crisisEventRepository.findAllByPatientIdAndStartedAtBetweenOrderByStartedAtDesc(
                 eq(46L), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of());
         when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(
-                eq(46L), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of());
+                eq(46L), any(Instant.class), any(Instant.class))).thenReturn(List.of());
         when(clinicalInsightService.generatePatientEvolutionInsight(
                 eq(46L), eq(List.of()), eq(List.of()), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn("fallback");

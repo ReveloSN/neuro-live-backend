@@ -11,7 +11,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.lang.reflect.Field;
 import java.util.List;
@@ -53,6 +56,21 @@ class AuditLogServiceTest {
         assertNotNull(result);
         assertEquals("LOGIN", result.getAction());
         verify(auditLogRepository).save(any(AuditLog.class));
+    }
+
+    @Test
+    void record_shouldStartIndependentTransactionForReadOnlyCallers() throws NoSuchMethodException {
+        Method recordMethod = AuditLogService.class.getMethod(
+                "record",
+                Long.class,
+                String.class,
+                Long.class,
+                String.class);
+
+        Transactional transactional = recordMethod.getAnnotation(Transactional.class);
+
+        assertNotNull(transactional);
+        assertEquals(Propagation.REQUIRES_NEW, transactional.propagation());
     }
 
     @Test

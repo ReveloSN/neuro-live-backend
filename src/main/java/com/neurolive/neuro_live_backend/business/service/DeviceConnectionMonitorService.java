@@ -6,6 +6,7 @@ import com.neurolive.neuro_live_backend.domain.biometric.Device;
 import com.neurolive.neuro_live_backend.infrastructure.config.TelemetryMonitoringProperties;
 import com.neurolive.neuro_live_backend.repository.DeviceRepository;
 import jakarta.persistence.EntityNotFoundException;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -43,11 +44,11 @@ public class DeviceConnectionMonitorService {
             timeUnit = TimeUnit.SECONDS
     )
     public void scanForDisconnects() {
-        scanForDisconnects(LocalDateTime.now());
+        scanForDisconnects(Instant.now());
     }
 
     // Ejecuta la deteccion periodica usando el timeout efectivo.
-    public List<Device> scanForDisconnects(LocalDateTime referenceTime) {
+    public List<Device> scanForDisconnects(Instant referenceTime) {
         if (referenceTime == null) {
             throw new IllegalArgumentException("Reference time is required");
         }
@@ -75,11 +76,11 @@ public class DeviceConnectionMonitorService {
             return;
         }
 
-        Device updatedDevice = deviceService.updateStatus(device.getId(), false, LocalDateTime.now());
+        Device updatedDevice = deviceService.updateStatus(device.getId(), false, Instant.now());
         crisisMediator.publishUpdate(
                 PatientStateUpdate.caregiverDeviceStatus(
                         updatedDevice.getPatientId(),
-                        LocalDateTime.now(),
+                        Instant.now(),
                         Boolean.FALSE,
                         updatedDevice.getSensorContact()
                 )
@@ -94,11 +95,11 @@ public class DeviceConnectionMonitorService {
             return;
         }
 
-        Device updatedDevice = deviceService.updateStatus(device.getId(), true, LocalDateTime.now());
+        Device updatedDevice = deviceService.updateStatus(device.getId(), true, Instant.now());
         crisisMediator.publishUpdate(
                 PatientStateUpdate.caregiverDeviceStatus(
                         updatedDevice.getPatientId(),
-                        LocalDateTime.now(),
+                        Instant.now(),
                         Boolean.TRUE,
                         updatedDevice.getSensorContact()
                 )
