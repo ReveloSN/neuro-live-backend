@@ -90,15 +90,20 @@ public class UserLink {
     }
 
     public String generateToken(LocalDateTime expiresAt) {
+        return generateToken(patient.generateLinkToken(), expiresAt);
+    }
+
+    public String generateToken(String token, LocalDateTime expiresAt) {
+        // Asigna el codigo ya validado por el servicio de vinculacion.
         validatePatient(patient);
         this.expiresAt = normalizeExpiration(expiresAt);
         this.consumedAt = null;
-        token = patient.generateLinkToken();
+        this.token = normalizeToken(token);
         status = StatusEnum.PENDING;
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
         }
-        return token;
+        return this.token;
     }
 
     public boolean validateToken() {
@@ -228,6 +233,13 @@ public class UserLink {
             throw new IllegalArgumentException("Token expiration must be in the future");
         }
         return expiresAt;
+    }
+
+    private String normalizeToken(String token) {
+        if (token == null || token.isBlank()) {
+            throw new IllegalArgumentException("Link token is required");
+        }
+        return token.trim().toUpperCase();
     }
 
     private boolean isExpired(LocalDateTime referenceTime) {

@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.security.SecureRandom;
 import java.util.List;
 import java.util.Locale;
 
@@ -24,10 +25,15 @@ import java.util.Locale;
 // Administra los vinculos entre pacientes y usuarios relacionados.
 public class UserLinkService {
 
+    private static final String LINK_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final int LINK_CODE_LENGTH = 6;
+    private static final int MAX_CODE_GENERATION_ATTEMPTS = 20;
+
     private final UserLinkRepository userLinkRepository;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
     private final Duration tokenLifetime;
+    private final SecureRandom secureRandom = new SecureRandom();
 
     public UserLinkService(UserLinkRepository userLinkRepository,
                         UserRepository userRepository,
@@ -44,7 +50,7 @@ public class UserLinkService {
         User linkedUser = getLinkedUser(linkedUserId, linkType);
 
         UserLink userLink = new UserLink(patient, linkedUser, linkType);
-        userLink.generateToken(LocalDateTime.now().plus(tokenLifetime));
+        userLink.generateToken(generateUniqueLinkCode(), LocalDateTime.now().plus(tokenLifetime));
         return userLinkRepository.save(userLink);
     }
 
@@ -72,7 +78,7 @@ public class UserLinkService {
         revokePendingTokens(patient.getId());
 
         UserLink userLink = new UserLink(patient);
-        userLink.generateToken(LocalDateTime.now().plus(tokenLifetime));
+        userLink.generateToken(generateUniqueLinkCode(), LocalDateTime.now().plus(tokenLifetime));
         UserLink savedLink = userLinkRepository.save(userLink);
         auditLogService.record(requester.getId(), "GENERATE_LINK_TOKEN", patient.getId(), normalizeIp(ipOrigin));
         return savedLink;
@@ -179,7 +185,35 @@ public class UserLinkService {
         if (token == null || token.isBlank()) {
             throw new IllegalArgumentException("Link token is required");
         }
-        return token.trim().toUpperCase(Locale.ROOT);
+        String normalizedToken = token.trim().toUpperCase(Locale.ROOT);
+        if (normalizedToken.length() != LINK_CODE_LENGTH || !usesAllowedLinkCodeAlphabet(normalizedToken)) {
+            throw new IllegalArgumentException("Link token must be 6 characters using the allowed alphabet");
+        }
+        return normalizedToken;
+    }
+
+    // Genera codigos cortos y evita guardar uno que ya exista en la tabla.
+    private String generateUniqueLinkCode() {
+        for (int attempt = 0; attempt < MAX_CODE_GENERATION_ATTEMPTS; attempt++) {
+            String code = generateShortLinkCode();
+            if (!userLinkRepository.existsByToken(code)) {
+                return code;
+            }
+        }
+        throw new IllegalStateException("Unable to generate a unique link code");
+    }
+
+    // Usa un alfabeto sin caracteres ambiguos para facilitar dictado y copia.
+    private String generateShortLinkCode() {
+        StringBuilder code = new StringBuilder(LINK_CODE_LENGTH);
+        for (int index = 0; index < LINK_CODE_LENGTH; index++) {
+            code.append(LINK_CODE_ALPHABET.charAt(secureRandom.nextInt(LINK_CODE_ALPHABET.length())));
+        }
+        return code.toString();
+    }
+
+    private boolean usesAllowedLinkCodeAlphabet(String token) {
+        return token.chars().allMatch(character -> LINK_CODE_ALPHABET.indexOf(character) >= 0);
     }
 
     private User resolveCurrentUser(String requesterEmail) {

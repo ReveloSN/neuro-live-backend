@@ -6,8 +6,8 @@ import jakarta.validation.constraints.Size;
 
 public record LinkRedeemRequestDTO(
         @NotBlank(message = "Link token is required")
-        @Size(min = 8, max = 32, message = "Link token must contain between 8 and 32 characters")
-        @Pattern(regexp = "^[A-Za-z0-9]+$", message = "Link token must be alphanumeric")
+        @Size(min = 6, max = 6, message = "Link token must contain 6 characters")
+        @Pattern(regexp = "^[A-HJ-NP-Z2-9a-hj-np-z]+$", message = "Link token contains unsupported characters")
         String token
 ) {
 }
