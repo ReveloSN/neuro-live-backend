@@ -5,6 +5,7 @@ import com.neurolive.neuro_live_backend.repository.AuditLogRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -21,6 +22,8 @@ public class AuditLogService {
         this.auditLogRepository = auditLogRepository;
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    // Mantiene la auditoria fuera de transacciones de lectura para evitar fallos en Postgres.
     public AuditLog record(Long userId, String action, Long targetPatientId, String ipOrigin) {
         String previousHash = auditLogRepository.findTopByOrderByIdDesc()
                 .map(AuditLog::getEntryHash)

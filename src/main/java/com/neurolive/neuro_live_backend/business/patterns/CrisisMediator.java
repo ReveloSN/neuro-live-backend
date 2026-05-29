@@ -108,6 +108,10 @@ public class CrisisMediator {
     }
 
     private StateEnum evaluateState(CrisisEvaluationInput input) {
+        if (!hasReadyBaseline(input.baseLine()) && !hasUsableThreshold(input.activationThreshold())) {
+            return input.analysisStateHint() == null ? StateEnum.NORMAL : input.analysisStateHint();
+        }
+
         StateEnum inferredState = hasUsableThreshold(input.activationThreshold())
                 ? evaluateWithThreshold(input)
                 : evaluateWithBaseline(input);
@@ -161,6 +165,10 @@ public class CrisisMediator {
                         || threshold.getBpmMax() != null
                         || threshold.getSpo2Min() != null
                         || threshold.getErrorRateMax() != null);
+    }
+
+    private boolean hasReadyBaseline(BaseLine baseLine) {
+        return baseLine != null && baseLine.isReady();
     }
 
     private boolean exceedsThreshold(CrisisEvaluationInput input, ActivationThreshold threshold) {
@@ -298,9 +306,11 @@ public class CrisisMediator {
                     && !patientId.equals(baseLine.getPatientId())) {
                 throw new IllegalArgumentException("Baseline patient must match the mediation patient");
             }
-            if (!hasReadyBaseline(baseLine) && !hasUsableThreshold(activationThreshold)) {
+            if (!hasReadyBaseline(baseLine)
+                    && !hasUsableThreshold(activationThreshold)
+                    && analysisStateHint != StateEnum.ACTIVE_CRISIS) {
                 throw new IllegalArgumentException(
-                        "A ready baseline or an active threshold is required for crisis mediation");
+                        "A ready baseline, an active threshold, or a crisis prediction is required for crisis mediation");
             }
         }
 

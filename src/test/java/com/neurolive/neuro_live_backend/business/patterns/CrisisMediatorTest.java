@@ -136,6 +136,31 @@ class CrisisMediatorTest {
     }
 
     @Test
+    void shouldPrepareBreathingProtocolForPredictedCrisisWithLowSpo2WithoutBaseline() {
+        BiometricData currentBiometricData = new BiometricData(
+                135.0f,
+                90.0f,
+                Instant.parse("2026-04-01T14:27:00Z")
+        );
+
+        CrisisMediator.CrisisMediationResult result = crisisMediator.mediate(
+                new CrisisMediator.CrisisEvaluationInput(
+                        51L,
+                        currentBiometricData,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        StateEnum.ACTIVE_CRISIS)
+        );
+
+        assertTrue(result.crisisDetected());
+        assertEquals(TypeEnum.BREATHING, result.interventionProtocol().getType());
+    }
+
+    @Test
     void shouldDelegateToUiInterventionWhenTypingErrorRateTriggersCrisis() {
         BaseLine baseLine = buildReadyBaseLine(49L, 80.0f, 98.0f);
         BiometricData currentBiometricData = new BiometricData(

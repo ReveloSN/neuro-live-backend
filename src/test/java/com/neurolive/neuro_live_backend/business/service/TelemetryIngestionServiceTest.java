@@ -437,6 +437,53 @@ class TelemetryIngestionServiceTest {
     }
 
     @Test
+    void shouldPersistPredictedCrisisEvenWhenBaselineIsNotReady() {
+        TelemetryPayload payload = new TelemetryPayload(
+                88L,
+                "AA:BB:CC:DD:EE:49",
+                135.0f,
+                90.0f,
+                Instant.parse("2026-04-02T10:27:00Z"),
+                Boolean.TRUE,
+                "PRE_CRISIS",
+                0.91f,
+                "Predictive model detected crisis risk"
+        );
+        Device device = buildDevice(88L, payload.deviceMac());
+        BaseLine baseLine = new BaseLine(88L);
+        BiometricTelemetrySample storedSample = BiometricTelemetrySample.from(
+                payload.patientId(),
+                payload.deviceMac(),
+                toDomain(payload),
+                payload.sensorContact(),
+                payload.predictionState(),
+                payload.predictionConfidence(),
+                payload.predictionReasoning()
+        );
+        CrisisMediator.CrisisMediationResult mediationResult =
+                buildCrisisResult(payload.patientId(), payload.observedAt());
+
+        when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
+        when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
+        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), payload.sensorContact())).thenReturn(device);
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(Instant.class), any(Instant.class))).thenReturn(List.of(storedSample));
+        when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
+        when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
+        when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
+                new RiskAssessmentService.AssessmentSnapshot(null, null, null, null, StateEnum.NORMAL, "stable", "stable")
+        );
+        when(crisisMediator.mediate(any())).thenReturn(mediationResult);
+
+        telemetryIngestionService.ingest(payload);
+
+        ArgumentCaptor<CrisisMediator.CrisisEvaluationInput> inputCaptor =
+                ArgumentCaptor.forClass(CrisisMediator.CrisisEvaluationInput.class);
+        verify(crisisMediator).mediate(inputCaptor.capture());
+        assertEquals(StateEnum.ACTIVE_CRISIS, inputCaptor.getValue().analysisStateHint());
+        verify(crisisOutcomePersistenceService).persist(mediationResult);
+    }
+
+    @Test
     void shouldKeepTelemetryWhenCommandDeliveryFailsAfterCrisisPersistence() {
         TelemetryPayload payload = buildPayload(87L, "AA:BB:CC:DD:EE:48", 112.0f, 92.0f, Instant.parse("2026-04-02T10:26:00Z"));
         Device device = buildDevice(87L, payload.deviceMac());
