@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 // Repositorio para almacenar y consultar muestras biometricas crudas.
 public interface BiometricTelemetrySampleRepository extends JpaRepository<BiometricTelemetrySample, Long> {
@@ -16,6 +17,8 @@ public interface BiometricTelemetrySampleRepository extends JpaRepository<Biomet
             LocalDateTime start,
             LocalDateTime end
     );
+
+    Optional<BiometricTelemetrySample> findFirstByPatientIdOrderByObservedAtDesc(Long patientId);
 
     org.springframework.data.domain.Page<BiometricTelemetrySample> findAllByPatientIdOrderByObservedAtDesc(
             Long patientId,

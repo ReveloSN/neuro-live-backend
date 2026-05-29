@@ -241,6 +241,7 @@ class TelemetryIngestionServiceTest {
 
         ArgumentCaptor<BiometricTelemetrySample> sampleCaptor = ArgumentCaptor.forClass(BiometricTelemetrySample.class);
         verify(biometricTelemetrySampleRepository).save(sampleCaptor.capture());
+        assertEquals(Boolean.TRUE, sampleCaptor.getValue().getSensorContact());
         assertEquals("WARNING", sampleCaptor.getValue().getPredictionState());
         assertEquals(1.0f, sampleCaptor.getValue().getPredictionConfidence());
         assertEquals(512, sampleCaptor.getValue().getPredictionReasoning().length());
@@ -346,6 +347,23 @@ class TelemetryIngestionServiceTest {
 
         assertEquals("Patient reference must be a positive identifier", exception.getMessage());
         verify(biometricTelemetrySampleRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectTelemetryWithoutConsentBeforePersistingSample() {
+        TelemetryPayload payload = buildPayload(843L, "AA:BB:CC:DD:EE:88", 80.0f, 97.0f, LocalDateTime.now());
+        doThrow(new IllegalStateException("Biometric consent is required before monitoring starts"))
+                .when(monitoringConsentService)
+                .assertMonitoringAllowed(843L);
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> telemetryIngestionService.ingest(payload)
+        );
+
+        assertEquals("Biometric consent is required before monitoring starts", exception.getMessage());
+        verify(biometricTelemetrySampleRepository, never()).save(any());
+        verify(deviceService, never()).findByMacAddress(any());
     }
 
     @Test

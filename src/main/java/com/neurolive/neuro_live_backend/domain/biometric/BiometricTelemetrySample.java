@@ -34,6 +34,9 @@ public class BiometricTelemetrySample {
     @Column(nullable = false, updatable = false)
     private float spo2;
 
+    @Column(name = "sensor_contact", updatable = false)
+    private Boolean sensorContact;
+
     @Column(name = "observed_at", nullable = false, updatable = false)
     private LocalDateTime observedAt;
 
@@ -47,12 +50,13 @@ public class BiometricTelemetrySample {
     private String predictionReasoning;
 
     private BiometricTelemetrySample(Long patientId, String deviceMac, BiometricData biometricData) {
-        this(patientId, deviceMac, biometricData, null, null, null);
+        this(patientId, deviceMac, biometricData, null, null, null, null);
     }
 
     private BiometricTelemetrySample(Long patientId,
                                      String deviceMac,
                                      BiometricData biometricData,
+                                     Boolean sensorContact,
                                      String predictionState,
                                      Float predictionConfidence,
                                      String predictionReasoning) {
@@ -60,6 +64,7 @@ public class BiometricTelemetrySample {
         this.deviceMac = normalizeDeviceMac(deviceMac);
         this.bpm = biometricData.bpm();
         this.spo2 = biometricData.spo2();
+        this.sensorContact = sensorContact;
         this.observedAt = biometricData.timestamp();
         this.predictionState = normalizePredictionState(predictionState);
         this.predictionConfidence = validatePredictionConfidence(predictionConfidence);
@@ -79,6 +84,16 @@ public class BiometricTelemetrySample {
                                                 String predictionState,
                                                 Float predictionConfidence,
                                                 String predictionReasoning) {
+        return from(patientId, deviceMac, biometricData, null, predictionState, predictionConfidence, predictionReasoning);
+    }
+
+    public static BiometricTelemetrySample from(Long patientId,
+                                                String deviceMac,
+                                                BiometricData biometricData,
+                                                Boolean sensorContact,
+                                                String predictionState,
+                                                Float predictionConfidence,
+                                                String predictionReasoning) {
         if (biometricData == null) {
             throw new IllegalArgumentException("Biometric data is required");
         }
@@ -86,6 +101,7 @@ public class BiometricTelemetrySample {
                 patientId,
                 deviceMac,
                 biometricData,
+                sensorContact,
                 predictionState,
                 predictionConfidence,
                 predictionReasoning

@@ -12,6 +12,7 @@ import com.neurolive.neuro_live_backend.business.service.TelemetryIngestionResul
 import com.neurolive.neuro_live_backend.business.service.TelemetryIngestionService;
 import com.neurolive.neuro_live_backend.domain.biometric.Device;
 import com.neurolive.neuro_live_backend.presentation.dto.TelemetryPayload;
+import jakarta.persistence.EntityNotFoundException;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,7 +41,9 @@ class InternalControllerTest {
                 deviceService
         );
         ReflectionTestUtils.setField(controller, "internalToken", "test-internal-token");
-        mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new ApiExceptionHandler())
+                .build();
     }
 
     // Comprueba que la telemetria interna acepta el token correcto.
@@ -83,5 +86,53 @@ class InternalControllerTest {
                                 "spo2", 98
                         ))))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void shouldRejectTelemetryWithInvalidInternalToken() throws Exception {
+        mockMvc.perform(post("/internal/telemetry")
+                        .header("X-Internal-Token", "wrong-token")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "deviceId", "AA:BB:CC:DD:EE:81",
+                                "bpm", 90,
+                                "spo2", 98
+                        ))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void shouldRejectTelemetryForUnknownDevice() throws Exception {
+        when(deviceService.findByMacAddress("AA:BB:CC:DD:EE:99"))
+                .thenThrow(new EntityNotFoundException("Device not found"));
+
+        mockMvc.perform(post("/internal/telemetry")
+                        .header("X-Internal-Token", "test-internal-token")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "deviceId", "AA:BB:CC:DD:EE:99",
+                                "bpm", 90,
+                                "spo2", 98
+                        ))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldReturnConflictWhenTelemetryConsentIsMissing() throws Exception {
+        Device device = new Device();
+        device.register(81L, "AA:BB:CC:DD:EE:81", null);
+        when(deviceService.findByMacAddress("AA:BB:CC:DD:EE:81")).thenReturn(device);
+        when(telemetryIngestionService.ingest(any()))
+                .thenThrow(new IllegalStateException("Biometric consent is required before monitoring starts"));
+
+        mockMvc.perform(post("/internal/telemetry")
+                        .header("X-Internal-Token", "test-internal-token")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "deviceId", "AA:BB:CC:DD:EE:81",
+                                "bpm", 90,
+                                "spo2", 98
+                        ))))
+                .andExpect(status().isConflict());
     }
 }

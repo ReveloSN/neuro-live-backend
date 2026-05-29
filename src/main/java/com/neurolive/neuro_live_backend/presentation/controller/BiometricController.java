@@ -3,6 +3,7 @@ package com.neurolive.neuro_live_backend.presentation.controller;
 import com.neurolive.neuro_live_backend.business.service.ActivationThresholdService;
 import com.neurolive.neuro_live_backend.business.service.AuditLogService;
 import com.neurolive.neuro_live_backend.business.service.BaseLineService;
+import com.neurolive.neuro_live_backend.business.service.BiometricTelemetryQueryService;
 import com.neurolive.neuro_live_backend.business.service.ClinicalAccessService;
 import com.neurolive.neuro_live_backend.business.service.KeystrokeDynamicsService;
 import com.neurolive.neuro_live_backend.business.service.MonitoringConsentService;
@@ -14,6 +15,7 @@ import com.neurolive.neuro_live_backend.presentation.dto.ActivationThresholdResp
 import com.neurolive.neuro_live_backend.presentation.dto.BaselineResponseDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.BiometricDataDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.BiometricIngestionResponseDTO;
+import com.neurolive.neuro_live_backend.presentation.dto.BiometricTelemetryLatestResponseDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.KeystrokeCaptureResponseDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.KeystrokeDynamicsDTO;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +44,7 @@ public class BiometricController {
     private final ClinicalAccessService clinicalAccessService;
     private final AuditLogService auditLogService;
     private final MonitoringConsentService monitoringConsentService;
+    private final BiometricTelemetryQueryService biometricTelemetryQueryService;
 
     public BiometricController(TelemetryIngestionService telemetryIngestionService,
                                KeystrokeDynamicsService keystrokeDynamicsService,
@@ -49,7 +52,8 @@ public class BiometricController {
                                ActivationThresholdService activationThresholdService,
                                ClinicalAccessService clinicalAccessService,
                                AuditLogService auditLogService,
-                               MonitoringConsentService monitoringConsentService) {
+                               MonitoringConsentService monitoringConsentService,
+                               BiometricTelemetryQueryService biometricTelemetryQueryService) {
         this.telemetryIngestionService = telemetryIngestionService;
         this.keystrokeDynamicsService = keystrokeDynamicsService;
         this.baseLineService = baseLineService;
@@ -57,6 +61,7 @@ public class BiometricController {
         this.clinicalAccessService = clinicalAccessService;
         this.auditLogService = auditLogService;
         this.monitoringConsentService = monitoringConsentService;
+        this.biometricTelemetryQueryService = biometricTelemetryQueryService;
     }
 
     @PostMapping("/telemetry")
@@ -68,6 +73,20 @@ public class BiometricController {
 
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(
                 BiometricIngestionResponseDTO.from(telemetryIngestionService.ingest(request.toPayload()))
+        );
+    }
+
+    @GetMapping("/patients/{patientId}/telemetry/latest")
+    public ResponseEntity<BiometricTelemetryLatestResponseDTO> getLatestTelemetry(
+            Authentication authentication,
+            @PathVariable Long patientId,
+            HttpServletRequest httpServletRequest) {
+        User requester = clinicalAccessService.requirePatientAccess(authentication.getName(), patientId);
+        auditLogService.record(requester.getId(), "READ_LATEST_TELEMETRY", patientId, ControllerSupport.resolveIp(httpServletRequest));
+        return ResponseEntity.ok(
+                BiometricTelemetryLatestResponseDTO.from(
+                        biometricTelemetryQueryService.findLatestForPatient(patientId)
+                )
         );
     }
 

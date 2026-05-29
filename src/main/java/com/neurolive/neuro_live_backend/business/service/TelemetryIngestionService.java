@@ -64,6 +64,20 @@ public class TelemetryIngestionService {
 
     // Reutiliza el flujo de telemetria existente y ahora tambien reacciona a reconexiones y fallos del sensor.
     public TelemetryIngestionResult ingest(TelemetryPayload payload) {
+        try {
+            return ingestValidated(payload);
+        } catch (RuntimeException exception) {
+            LOGGER.warn(
+                    "Telemetry sample was not persisted patientId={} deviceMac={} reason={}",
+                    payload == null ? null : payload.patientId(),
+                    payload == null ? null : payload.deviceMac(),
+                    failureReason(exception)
+            );
+            throw exception;
+        }
+    }
+
+    private TelemetryIngestionResult ingestValidated(TelemetryPayload payload) {
         if (payload == null) {
             throw new IllegalArgumentException("Telemetry payload is required");
         }
@@ -97,11 +111,12 @@ public class TelemetryIngestionService {
                         patientId,
                         device.getMacAddress(),
                         biometricData,
+                        payload.sensorContact(),
                         predictionState,
                         predictionConfidence,
                         predictionReasoning
                 ));
-        LOGGER.debug(
+        LOGGER.info(
                 "Saved telemetry sample id={} patientId={} deviceMac={} observedAt={}",
                 storedSample.getId(),
                 storedSample.getPatientId(),
@@ -346,5 +361,13 @@ public class TelemetryIngestionService {
         return normalized.length() <= MAX_PREDICTION_REASONING_LENGTH
                 ? normalized
                 : normalized.substring(0, MAX_PREDICTION_REASONING_LENGTH);
+    }
+
+    private String failureReason(RuntimeException exception) {
+        if (exception == null) {
+            return "unknown";
+        }
+        String message = exception.getMessage();
+        return message == null || message.isBlank() ? exception.getClass().getSimpleName() : message;
     }
 }
