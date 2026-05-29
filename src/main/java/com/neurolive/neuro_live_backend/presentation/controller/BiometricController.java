@@ -76,6 +76,7 @@ public class BiometricController {
         );
     }
 
+    // Devuelve la ultima telemetria persistida para dashboards REST.
     @GetMapping("/patients/{patientId}/telemetry/latest")
     public ResponseEntity<BiometricTelemetryLatestResponseDTO> getLatestTelemetry(
             Authentication authentication,
@@ -180,5 +181,4 @@ public class BiometricController {
                 .toList();
         return ResponseEntity.ok(result);
     }
-
 }

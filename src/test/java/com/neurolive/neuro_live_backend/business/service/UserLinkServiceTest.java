@@ -186,6 +186,89 @@ class UserLinkServiceTest {
     }
 
     @Test
+    void revokeForRequesterShouldAllowPatientToRevokeDoctorLinkAndRecordAudit() {
+        Patient patient = buildPatient(1710L);
+        Doctor doctor = buildDoctor(1711L);
+        UserLink userLink = buildActiveLink(patient, doctor, LinkTypeEnum.DOCTOR);
+
+        when(userRepository.findByEmail("patient1710@neurolive.test")).thenReturn(Optional.of(patient));
+        when(userLinkRepository.findById(800L)).thenReturn(Optional.of(userLink));
+        when(userLinkRepository.save(userLink)).thenReturn(userLink);
+
+        UserLink result = userLinkService.revokeForRequester("patient1710@neurolive.test", 800L, "10.1.1.1");
+
+        assertEquals(StatusEnum.REVOKED, result.getStatus());
+        assertNotNull(result.getRevokedAt());
+        verify(auditLogService).record(1710L, "REVOKE_USER_LINK", 1710L, "10.1.1.1");
+    }
+
+    @Test
+    void revokeForRequesterShouldAllowPatientToRevokeCaregiverLink() {
+        Patient patient = buildPatient(1720L);
+        Caregiver caregiver = buildCaregiver(1721L);
+        UserLink userLink = buildActiveLink(patient, caregiver, LinkTypeEnum.CAREGIVER);
+
+        when(userRepository.findByEmail("patient1720@neurolive.test")).thenReturn(Optional.of(patient));
+        when(userLinkRepository.findById(801L)).thenReturn(Optional.of(userLink));
+        when(userLinkRepository.save(userLink)).thenReturn(userLink);
+
+        UserLink result = userLinkService.revokeForRequester("patient1720@neurolive.test", 801L, "10.1.1.2");
+
+        assertEquals(StatusEnum.REVOKED, result.getStatus());
+        verify(auditLogService).record(1720L, "REVOKE_USER_LINK", 1720L, "10.1.1.2");
+    }
+
+    @Test
+    void revokeForRequesterShouldAllowDoctorToRevokeOwnPatientLink() {
+        Patient patient = buildPatient(1730L);
+        Doctor doctor = buildDoctor(1731L);
+        UserLink userLink = buildActiveLink(patient, doctor, LinkTypeEnum.DOCTOR);
+
+        when(userRepository.findByEmail("doctor1731@neurolive.test")).thenReturn(Optional.of(doctor));
+        when(userLinkRepository.findById(802L)).thenReturn(Optional.of(userLink));
+        when(userLinkRepository.save(userLink)).thenReturn(userLink);
+
+        UserLink result = userLinkService.revokeForRequester("doctor1731@neurolive.test", 802L, "10.1.1.3");
+
+        assertEquals(StatusEnum.REVOKED, result.getStatus());
+        verify(auditLogService).record(1731L, "REVOKE_USER_LINK", 1730L, "10.1.1.3");
+    }
+
+    @Test
+    void revokeForRequesterShouldAllowCaregiverToRevokeOwnPatientLink() {
+        Patient patient = buildPatient(1740L);
+        Caregiver caregiver = buildCaregiver(1741L);
+        UserLink userLink = buildActiveLink(patient, caregiver, LinkTypeEnum.CAREGIVER);
+
+        when(userRepository.findByEmail("caregiver1741@neurolive.test")).thenReturn(Optional.of(caregiver));
+        when(userLinkRepository.findById(803L)).thenReturn(Optional.of(userLink));
+        when(userLinkRepository.save(userLink)).thenReturn(userLink);
+
+        UserLink result = userLinkService.revokeForRequester("caregiver1741@neurolive.test", 803L, "10.1.1.4");
+
+        assertEquals(StatusEnum.REVOKED, result.getStatus());
+        verify(auditLogService).record(1741L, "REVOKE_USER_LINK", 1740L, "10.1.1.4");
+    }
+
+    @Test
+    void revokeForRequesterShouldRejectUnrelatedUser() {
+        Patient patient = buildPatient(1750L);
+        Doctor doctor = buildDoctor(1751L);
+        Doctor unrelatedDoctor = buildDoctor(1752L);
+        UserLink userLink = buildActiveLink(patient, doctor, LinkTypeEnum.DOCTOR);
+
+        when(userRepository.findByEmail("doctor1752@neurolive.test")).thenReturn(Optional.of(unrelatedDoctor));
+        when(userLinkRepository.findById(804L)).thenReturn(Optional.of(userLink));
+
+        assertThrows(
+                UnauthorizedAccessException.class,
+                () -> userLinkService.revokeForRequester("doctor1752@neurolive.test", 804L, "10.1.1.5")
+        );
+
+        verify(userLinkRepository, never()).save(any(UserLink.class));
+    }
+
+    @Test
     void hasActiveLink_shouldReturnTrueWhenActiveLinkExists() {
         when(userLinkRepository.existsByPatient_IdAndLinkedUser_IdAndStatus(180L, 181L, StatusEnum.ACTIVE))
                 .thenReturn(true);
@@ -233,6 +316,13 @@ class UserLinkServiceTest {
         personalUser.register("Personal " + id, "personal" + id + "@neurolive.test", "encoded-secret");
         setId(personalUser, id);
         return personalUser;
+    }
+
+    private UserLink buildActiveLink(Patient patient, User linkedUser, LinkTypeEnum linkType) {
+        UserLink userLink = new UserLink(patient, linkedUser, linkType);
+        userLink.generateToken(LocalDateTime.now().plusMinutes(15));
+        userLink.activate();
+        return userLink;
     }
 
     private void setId(User user, Long id) {

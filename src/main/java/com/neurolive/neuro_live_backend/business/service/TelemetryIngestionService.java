@@ -13,6 +13,7 @@ import com.neurolive.neuro_live_backend.repository.BiometricTelemetrySampleRepos
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -174,6 +175,17 @@ public class TelemetryIngestionService {
         }
 
         return new TelemetryIngestionResult(storedSample, updatedDevice, baseLine, crisisMediationResult);
+    }
+
+    @Transactional(readOnly = true)
+    // Devuelve la ultima muestra guardada para que el dashboard no dependa solo de eventos STOMP.
+    public BiometricTelemetrySample findLatestForPatient(Long patientId) {
+        Long validatedPatientId = validatePatientId(patientId);
+        return biometricTelemetrySampleRepository
+                .findAllByPatientIdOrderByObservedAtDesc(validatedPatientId, PageRequest.of(0, 1))
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new EntityNotFoundException("No telemetry samples found for patient " + validatedPatientId));
     }
 
     // Notifica al cuidador solo cuando cambia la conectividad o el contacto del sensor.

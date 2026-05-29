@@ -33,6 +33,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+// Verifica que el frontend tenga un endpoint REST estable para leer telemetria real.
 class BiometricControllerTest {
 
     private final TelemetryIngestionService telemetryIngestionService = Mockito.mock(TelemetryIngestionService.class);
@@ -89,6 +90,34 @@ class BiometricControllerTest {
                 .andExpect(jsonPath("$.predictionReasoning").value("Manual direct backend test"));
 
         verify(auditLogService).record(7L, "READ_LATEST_TELEMETRY", 7L, "127.0.0.1");
+    }
+
+    @Test
+    void shouldReturnLatestTelemetryForAuthorizedPatient() throws Exception {
+        Patient patient = buildPatient(220L);
+        BiometricTelemetrySample latestSample = BiometricTelemetrySample.from(
+                220L,
+                "AA:BB:CC:DD:EE:20",
+                new BiometricData(94.0f, 97.0f, LocalDateTime.of(2026, 5, 22, 6, 0)),
+                Boolean.TRUE,
+                "STABLE",
+                0.61f,
+                "Recent values are stable"
+        );
+        when(clinicalAccessService.requirePatientAccess("patient220@neurolive.test", 220L)).thenReturn(patient);
+        when(biometricTelemetryQueryService.findLatestForPatient(220L)).thenReturn(latestSample);
+
+        mockMvc.perform(get("/biometrics/patients/220/telemetry/latest")
+                        .principal(new TestingAuthenticationToken("patient220@neurolive.test", "token")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.patientId").value(220))
+                .andExpect(jsonPath("$.deviceId").value("AA:BB:CC:DD:EE:20"))
+                .andExpect(jsonPath("$.bpm").value(94.0))
+                .andExpect(jsonPath("$.spo2").value(97.0))
+                .andExpect(jsonPath("$.sensorConnected").value(true))
+                .andExpect(jsonPath("$.predictionState").value("STABLE"));
+
+        verify(auditLogService).record(220L, "READ_LATEST_TELEMETRY", 220L, "127.0.0.1");
     }
 
     @Test

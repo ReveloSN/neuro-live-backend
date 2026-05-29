@@ -1,6 +1,7 @@
 package com.neurolive.neuro_live_backend.presentation.controller;
 
 import com.neurolive.neuro_live_backend.business.service.UserLinkService;
+import com.neurolive.neuro_live_backend.presentation.dto.LinkRevocationResponseDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.LinkRedeemRequestDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.LinkTokenResponseDTO;
 import com.neurolive.neuro_live_backend.presentation.dto.UserLinkResponseDTO;
@@ -10,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -60,6 +63,22 @@ public class UserLinkController {
                         .stream()
                         .map(UserLinkResponseDTO::from)
                         .toList()
+        );
+    }
+
+    // Revoca solo la relacion; los usuarios y la historia clinica permanecen.
+    @PatchMapping("/{linkId}/revoke")
+    public ResponseEntity<LinkRevocationResponseDTO> revokeLink(Authentication authentication,
+                                                                @PathVariable Long linkId,
+                                                                HttpServletRequest httpServletRequest) {
+        return ResponseEntity.ok(
+                LinkRevocationResponseDTO.from(
+                        userLinkService.revokeForRequester(
+                                authentication.getName(),
+                                linkId,
+                                ControllerSupport.resolveIp(httpServletRequest)
+                        )
+                )
         );
     }
 
