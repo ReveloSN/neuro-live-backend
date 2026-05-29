@@ -4,5 +4,5 @@ import java.time.LocalDateTime;
 
 public interface AccountRecoveryMailService {
 
-    void sendRecoveryToken(String email, String rawToken, LocalDateTime expiresAt);
+    void sendRecoveryToken(String email, String code, LocalDateTime expiresAt);
 }

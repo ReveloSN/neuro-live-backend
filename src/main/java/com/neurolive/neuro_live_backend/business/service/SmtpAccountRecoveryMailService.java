@@ -35,12 +35,12 @@ public class SmtpAccountRecoveryMailService implements AccountRecoveryMailServic
     }
 
     @Override
-    public void sendRecoveryToken(String email, String rawToken, LocalDateTime expiresAt) {
+    public void sendRecoveryToken(String email, String code, LocalDateTime expiresAt) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromAddress);
         message.setTo(email);
         message.setSubject(subject);
-        message.setText(buildBody(rawToken, expiresAt));
+        message.setText(buildBody(code, expiresAt));
 
         try {
             javaMailSender.send(message);
@@ -49,20 +49,20 @@ public class SmtpAccountRecoveryMailService implements AccountRecoveryMailServic
         }
     }
 
-    private String buildBody(String rawToken, LocalDateTime expiresAt) {
+    private String buildBody(String code, LocalDateTime expiresAt) {
         return """
                 Hola,
 
                 Recibimos una solicitud para restablecer tu contrasena en %s.
 
-                Usa este codigo temporal para continuar:
+                Usa este codigo de 6 digitos para continuar:
                 %s
 
                 El codigo vence el %s.
                 Si no solicitaste este cambio, puedes ignorar este correo.
                 """.formatted(
                 applicationName,
-                rawToken,
+                code,
                 expiresAt == null ? "pronto" : expiresAt.format(EXPIRATION_FORMATTER)
         );
     }

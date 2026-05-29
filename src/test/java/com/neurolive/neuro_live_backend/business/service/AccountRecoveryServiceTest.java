@@ -97,6 +97,7 @@ class AccountRecoveryServiceTest {
         assertTrue(status.valid());
         assertNull(status.expiresAt());
         assertNotNull(rawTokenCaptor.getValue());
+        assertTrue(rawTokenCaptor.getValue().matches("^\\d{6}$"), "Generated code should be 6 digits");
         assertNotEquals(rawTokenCaptor.getValue(), tokenCaptor.getValue().getTokenHash());
         assertEquals(expirationCaptor.getValue(), tokenCaptor.getValue().getExpiresAt());
     }
@@ -141,7 +142,7 @@ class AccountRecoveryServiceTest {
 
     @Test
     void validateTokenShouldAcceptActiveToken() {
-        String rawToken = "valid-recovery-token";
+        String rawToken = "123456";
         AccountRecoveryToken recoveryToken = AccountRecoveryToken.issue(
                 303L,
                 "patient303@neurolive.test",
@@ -167,7 +168,7 @@ class AccountRecoveryServiceTest {
         AccountRecoveryToken recoveryToken = AccountRecoveryToken.issue(
                 304L,
                 "patient304@neurolive.test",
-                hash("correct-token"),
+                hash("123456"),
                 LocalDateTime.now().plusMinutes(5)
         );
 
@@ -178,7 +179,7 @@ class AccountRecoveryServiceTest {
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> accountRecoveryService.validateToken("patient304@neurolive.test", "wrong-token")
+                () -> accountRecoveryService.validateToken("patient304@neurolive.test", "654321")
         );
 
         assertEquals("Recovery token is invalid or expired", exception.getMessage());
@@ -186,7 +187,7 @@ class AccountRecoveryServiceTest {
 
     @Test
     void resetPasswordShouldEncodePasswordAndConsumeToken() {
-        String rawToken = "usable-token";
+        String rawToken = "234567";
         Patient user = buildPatient(305L, "patient305@neurolive.test");
         AccountRecoveryToken recoveryToken = AccountRecoveryToken.issue(
                 305L,
@@ -217,7 +218,7 @@ class AccountRecoveryServiceTest {
 
     @Test
     void resetPasswordShouldRejectConsumedToken() {
-        String rawToken = "used-token";
+        String rawToken = "345678";
         AccountRecoveryToken consumedToken = AccountRecoveryToken.issue(
                 306L,
                 "patient306@neurolive.test",
@@ -248,7 +249,7 @@ class AccountRecoveryServiceTest {
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> accountRecoveryService.resetPassword("patient307@neurolive.test", "expired-token", "new-secret")
+                () -> accountRecoveryService.resetPassword("patient307@neurolive.test", "456789", "new-secret")
         );
 
         assertEquals("Recovery token is invalid or expired", exception.getMessage());
@@ -268,10 +269,41 @@ class AccountRecoveryServiceTest {
     void resetPasswordShouldRejectBlankNewPassword() {
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> accountRecoveryService.resetPassword("patient308@neurolive.test", "any-token", "   ")
+                () -> accountRecoveryService.resetPassword("patient308@neurolive.test", "567890", "   ")
         );
 
         assertEquals("New password is required", exception.getMessage());
+    }
+
+    @Test
+    void validateTokenShouldRejectAlphanumericToken() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> accountRecoveryService.validateToken("patient@neurolive.test", "ABCDEF")
+        );
+
+        assertEquals("Recovery token is invalid or expired", exception.getMessage());
+    }
+
+    @Test
+    void validateTokenShouldAcceptLeadingZeros() {
+        String codeWithZeros = "000123";
+        AccountRecoveryToken recoveryToken = AccountRecoveryToken.issue(
+                310L,
+                "patient310@neurolive.test",
+                hash(codeWithZeros),
+                LocalDateTime.now().plusMinutes(5)
+        );
+
+        when(accountRecoveryTokenRepository.findFirstByEmailAndConsumedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(
+                eq("patient310@neurolive.test"),
+                any(LocalDateTime.class)
+        )).thenReturn(Optional.of(recoveryToken));
+
+        AccountRecoveryService.RecoveryStatus status =
+                accountRecoveryService.validateToken("patient310@neurolive.test", codeWithZeros);
+
+        assertTrue(status.valid());
     }
 
     private Patient buildPatient(Long id, String email) {
