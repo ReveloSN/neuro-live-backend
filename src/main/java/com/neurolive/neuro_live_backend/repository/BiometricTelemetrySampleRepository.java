@@ -3,7 +3,7 @@ package com.neurolive.neuro_live_backend.repository;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricTelemetrySample;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,8 +14,8 @@ public interface BiometricTelemetrySampleRepository extends JpaRepository<Biomet
 
     List<BiometricTelemetrySample> findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(
             Long patientId,
-            LocalDateTime start,
-            LocalDateTime end
+            Instant start,
+            Instant end
     );
 
     Optional<BiometricTelemetrySample> findFirstByPatientIdOrderByObservedAtDesc(Long patientId);

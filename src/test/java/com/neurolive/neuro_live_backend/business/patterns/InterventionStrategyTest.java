@@ -7,7 +7,7 @@ import com.neurolive.neuro_live_backend.domain.biometric.BiometricData;
 import com.neurolive.neuro_live_backend.domain.crisis.InterventionProtocol;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -23,7 +23,7 @@ class InterventionStrategyTest {
         InterventionProtocol interventionProtocol = strategy.prepareProtocol(
                 new CrisisMediator.CrisisEvaluationInput(
                         51L,
-                        new BiometricData(105.0f, 92.0f, LocalDateTime.of(2026, 4, 1, 15, 0)),
+                        new BiometricData(105.0f, 92.0f, Instant.parse("2026-04-01T15:00:00Z")),
                         buildReadyBaseLine(51L, 80.0f, 98.0f),
                         null,
                         null
@@ -43,7 +43,7 @@ class InterventionStrategyTest {
         InterventionProtocol interventionProtocol = strategy.prepareProtocol(
                 new CrisisMediator.CrisisEvaluationInput(
                         52L,
-                        new BiometricData(104.0f, 97.0f, LocalDateTime.of(2026, 4, 1, 15, 5)),
+                        new BiometricData(104.0f, 97.0f, Instant.parse("2026-04-01T15:05:00Z")),
                         buildReadyBaseLine(52L, 80.0f, 98.0f),
                         new ActivationThreshold(null, 90.0f, null, null),
                         null
@@ -62,7 +62,7 @@ class InterventionStrategyTest {
         InterventionProtocol interventionProtocol = strategy.prepareProtocol(
                 new CrisisMediator.CrisisEvaluationInput(
                         53L,
-                        new BiometricData(113.0f, 98.0f, LocalDateTime.of(2026, 4, 1, 15, 10)),
+                        new BiometricData(113.0f, 98.0f, Instant.parse("2026-04-01T15:10:00Z")),
                         buildReadyBaseLine(53L, 80.0f, 98.0f),
                         null,
                         null
@@ -81,7 +81,7 @@ class InterventionStrategyTest {
         InterventionProtocol interventionProtocol = strategy.prepareProtocol(
                 new CrisisMediator.CrisisEvaluationInput(
                         54L,
-                        new BiometricData(85.0f, 97.0f, LocalDateTime.of(2026, 4, 1, 15, 15)),
+                        new BiometricData(85.0f, 97.0f, Instant.parse("2026-04-01T15:15:00Z")),
                         buildReadyBaseLine(54L, 80.0f, 98.0f),
                         null,
                         0.30f
@@ -106,7 +106,7 @@ class InterventionStrategyTest {
         CrisisMediator.CrisisMediationResult result = crisisMediator.mediate(
                 new CrisisMediator.CrisisEvaluationInput(
                         55L,
-                        new BiometricData(115.0f, 98.0f, LocalDateTime.of(2026, 4, 1, 15, 20)),
+                        new BiometricData(115.0f, 98.0f, Instant.parse("2026-04-01T15:20:00Z")),
                         buildReadyBaseLine(55L, 80.0f, 98.0f),
                         null,
                         null
@@ -122,7 +122,7 @@ class InterventionStrategyTest {
         InterventionProtocol uiProtocol = new UiReductionStrategy().prepareProtocol(
                 new CrisisMediator.CrisisEvaluationInput(
                         57L,
-                        new BiometricData(85.0f, 97.0f, LocalDateTime.of(2026, 4, 1, 15, 22)),
+                        new BiometricData(85.0f, 97.0f, Instant.parse("2026-04-01T15:22:00Z")),
                         buildReadyBaseLine(57L, 80.0f, 98.0f),
                         null,
                         0.30f
@@ -131,7 +131,7 @@ class InterventionStrategyTest {
         InterventionProtocol breathingProtocol = new GuidedBreathingStrategy().prepareProtocol(
                 new CrisisMediator.CrisisEvaluationInput(
                         58L,
-                        new BiometricData(105.0f, 92.0f, LocalDateTime.of(2026, 4, 1, 15, 23)),
+                        new BiometricData(105.0f, 92.0f, Instant.parse("2026-04-01T15:23:00Z")),
                         buildReadyBaseLine(58L, 80.0f, 98.0f),
                         null,
                         null
@@ -149,7 +149,7 @@ class InterventionStrategyTest {
         InterventionProtocol interventionProtocol = strategy.prepareProtocol(
                 new CrisisMediator.CrisisEvaluationInput(
                         56L,
-                        new BiometricData(104.0f, 92.0f, LocalDateTime.of(2026, 4, 1, 15, 25)),
+                        new BiometricData(104.0f, 92.0f, Instant.parse("2026-04-01T15:25:00Z")),
                         buildReadyBaseLine(56L, 80.0f, 98.0f),
                         null,
                         null
@@ -162,15 +162,15 @@ class InterventionStrategyTest {
 
     private BaseLine buildReadyBaseLine(Long patientId, float avgBpm, float avgSpo2) {
         BaseLine baseLine = new BaseLine(patientId);
-        LocalDateTime sessionStart = LocalDateTime.of(2026, 4, 1, 9, 0);
+        Instant sessionStart = Instant.parse("2026-04-01T09:00:00Z");
 
         baseLine.calculate(List.of(
                 new BiometricData(avgBpm, avgSpo2, sessionStart),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(1)),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(2)),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(3)),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(4)),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(5))
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(60)),
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(120)),
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(180)),
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(240)),
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(300))
         ));
 
         return baseLine;

@@ -2,6 +2,7 @@ package com.neurolive.neuro_live_backend.business.patterns;
 
 import com.neurolive.neuro_live_backend.domain.crisis.EmotionalState;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 // Representa el cambio de estado listo para el dashboard
@@ -10,7 +11,7 @@ public record PatientStateUpdate(
         EmotionalState emotionalState,
         boolean crisisDetected,
         boolean interventionPrepared,
-        LocalDateTime observedAt,
+        Instant observedAt,
         PatientStateAudience audience,
         Boolean deviceConnected,
         Boolean sensorContact
@@ -39,7 +40,7 @@ public record PatientStateUpdate(
                                                 EmotionalState emotionalState,
                                                 boolean crisisDetected,
                                                 boolean interventionPrepared,
-                                                LocalDateTime observedAt) {
+                                                Instant observedAt) {
         return new PatientStateUpdate(
                 patientId,
                 emotionalState,
@@ -53,13 +54,13 @@ public record PatientStateUpdate(
     }
 
     // Conserva el factory existente para los lugares que solo conocen la semantica de desconexion.
-    public static PatientStateUpdate caregiverDisconnectAlert(Long patientId, LocalDateTime observedAt) {
+    public static PatientStateUpdate caregiverDisconnectAlert(Long patientId, Instant observedAt) {
         return caregiverDeviceStatus(patientId, observedAt, Boolean.FALSE, null);
     }
 
     // Reutiliza el mismo canal del dashboard para caidas, advertencias del sensor y recuperacion del dispositivo.
     public static PatientStateUpdate caregiverDeviceStatus(Long patientId,
-                                                           LocalDateTime observedAt,
+                                                           Instant observedAt,
                                                            Boolean deviceConnected,
                                                            Boolean sensorContact) {
         return new PatientStateUpdate(

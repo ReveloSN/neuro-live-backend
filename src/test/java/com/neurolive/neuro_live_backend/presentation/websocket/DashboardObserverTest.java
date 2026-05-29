@@ -5,7 +5,7 @@ import com.neurolive.neuro_live_backend.data.enums.StateEnum;
 import com.neurolive.neuro_live_backend.domain.crisis.EmotionalState;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -21,7 +21,7 @@ class DashboardObserverTest {
                 EmotionalState.from(StateEnum.RISK_ELEVATED),
                 false,
                 false,
-                LocalDateTime.of(2026, 4, 1, 16, 20));
+                Instant.parse("2026-04-01T16:20:00Z"));
 
         observer.onPatientStateChanged(update);
 
@@ -37,7 +37,7 @@ class DashboardObserverTest {
                 EmotionalState.from(StateEnum.ACTIVE_CRISIS),
                 true,
                 true,
-                LocalDateTime.of(2026, 4, 1, 16, 25));
+                Instant.parse("2026-04-01T16:25:00Z"));
 
         observer.onPatientStateChanged(update);
 
@@ -50,7 +50,7 @@ class DashboardObserverTest {
         DoctorDashboardObserver observer = new DoctorDashboardObserver(recordingBridge);
         PatientStateUpdate update = PatientStateUpdate.caregiverDisconnectAlert(
                 73L,
-                LocalDateTime.of(2026, 4, 1, 16, 30));
+                Instant.parse("2026-04-01T16:30:00Z"));
 
         observer.onPatientStateChanged(update);
 
@@ -63,7 +63,7 @@ class DashboardObserverTest {
         CaregiverDashboardObserver observer = new CaregiverDashboardObserver(recordingBridge);
         PatientStateUpdate update = PatientStateUpdate.caregiverDisconnectAlert(
                 74L,
-                LocalDateTime.of(2026, 4, 1, 16, 35));
+                Instant.parse("2026-04-01T16:35:00Z"));
 
         observer.onPatientStateChanged(update);
 

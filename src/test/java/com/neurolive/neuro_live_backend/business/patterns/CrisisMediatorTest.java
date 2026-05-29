@@ -7,6 +7,7 @@ import com.neurolive.neuro_live_backend.domain.biometric.BaseLine;
 import com.neurolive.neuro_live_backend.domain.biometric.BiometricData;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -26,7 +27,7 @@ class CrisisMediatorTest {
         BiometricData currentBiometricData = new BiometricData(
                 84.0f,
                 97.5f,
-                LocalDateTime.of(2026, 4, 1, 14, 0)
+                Instant.parse("2026-04-01T14:00:00Z")
         );
 
         CrisisMediator.CrisisMediationResult result = crisisMediator.mediate(
@@ -46,7 +47,7 @@ class CrisisMediatorTest {
         BiometricData currentBiometricData = new BiometricData(
                 97.0f,
                 96.0f,
-                LocalDateTime.of(2026, 4, 1, 14, 5)
+                Instant.parse("2026-04-01T14:05:00Z")
         );
 
         CrisisMediator.CrisisMediationResult result = crisisMediator.mediate(
@@ -64,7 +65,7 @@ class CrisisMediatorTest {
         BiometricData currentBiometricData = new BiometricData(
                 113.0f,
                 92.0f,
-                LocalDateTime.of(2026, 4, 1, 14, 10)
+                Instant.parse("2026-04-01T14:10:00Z")
         );
 
         CrisisMediator.CrisisMediationResult result = crisisMediator.mediate(
@@ -82,7 +83,7 @@ class CrisisMediatorTest {
         BiometricData currentBiometricData = new BiometricData(
                 110.0f,
                 93.0f,
-                LocalDateTime.of(2026, 4, 1, 14, 15)
+                Instant.parse("2026-04-01T14:15:00Z")
         );
 
         CrisisMediator.CrisisMediationResult result = crisisMediator.mediate(
@@ -92,7 +93,7 @@ class CrisisMediatorTest {
         assertNotNull(result.crisisEvent());
         assertEquals(44L, result.crisisEvent().getPatientId());
         assertEquals(StateEnum.ACTIVE_CRISIS, result.crisisEvent().getState());
-        assertEquals(currentBiometricData.timestamp(), result.crisisEvent().getStartedAt());
+        assertEquals(LocalDateTime.ofInstant(currentBiometricData.timestamp(), java.time.ZoneId.systemDefault()), result.crisisEvent().getStartedAt());
         assertTrue(result.crisisEvent().isActive());
     }
 
@@ -102,7 +103,7 @@ class CrisisMediatorTest {
         BiometricData currentBiometricData = new BiometricData(
                 83.0f,
                 98.0f,
-                LocalDateTime.of(2026, 4, 1, 14, 20)
+                Instant.parse("2026-04-01T14:20:00Z")
         );
 
         CrisisMediator.CrisisMediationResult result = crisisMediator.mediate(
@@ -119,7 +120,7 @@ class CrisisMediatorTest {
         BiometricData currentBiometricData = new BiometricData(
                 106.0f,
                 92.0f,
-                LocalDateTime.of(2026, 4, 1, 14, 25)
+                Instant.parse("2026-04-01T14:25:00Z")
         );
 
         CrisisMediator.CrisisMediationResult result = crisisMediator.mediate(
@@ -140,7 +141,7 @@ class CrisisMediatorTest {
         BiometricData currentBiometricData = new BiometricData(
                 84.0f,
                 97.0f,
-                LocalDateTime.of(2026, 4, 1, 14, 40)
+                Instant.parse("2026-04-01T14:40:00Z")
         );
 
         CrisisMediator.CrisisMediationResult result = crisisMediator.mediate(
@@ -157,7 +158,7 @@ class CrisisMediatorTest {
         BiometricData currentBiometricData = new BiometricData(
                 96.0f,
                 97.0f,
-                LocalDateTime.of(2026, 4, 1, 14, 30)
+                Instant.parse("2026-04-01T14:30:00Z")
         );
         ActivationThreshold activationThreshold = new ActivationThreshold(null, 90.0f, null, null);
 
@@ -173,7 +174,7 @@ class CrisisMediatorTest {
     void shouldReturnNormalStateAndNoInterventionWhenBiometricsAreLow() {
         BaseLine baseLine = buildReadyBaseLine(49L, 70.0f, 99.0f);
         BiometricData biometricData = new BiometricData(72.0f, 99.0f,
-                LocalDateTime.of(2026, 4, 1, 14, 40));
+                Instant.parse("2026-04-01T14:40:00Z"));
 
         CrisisMediator.CrisisMediationResult result = crisisMediator.mediate(
                 new CrisisMediator.CrisisEvaluationInput(49L, biometricData, baseLine, null, null)
@@ -190,7 +191,7 @@ class CrisisMediatorTest {
         BiometricData currentBiometricData = new BiometricData(
                 99.0f,
                 96.0f,
-                LocalDateTime.of(2026, 4, 1, 14, 35)
+                Instant.parse("2026-04-01T14:35:00Z")
         );
 
         CrisisMediator.CrisisMediationResult result = crisisMediator.mediate(
@@ -204,15 +205,15 @@ class CrisisMediatorTest {
 
     private BaseLine buildReadyBaseLine(Long patientId, float avgBpm, float avgSpo2) {
         BaseLine baseLine = new BaseLine(patientId);
-        LocalDateTime sessionStart = LocalDateTime.of(2026, 4, 1, 9, 0);
+        Instant sessionStart = Instant.parse("2026-04-01T09:00:00Z");
 
         baseLine.calculate(List.of(
                 new BiometricData(avgBpm, avgSpo2, sessionStart),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(1)),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(2)),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(3)),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(4)),
-                new BiometricData(avgBpm, avgSpo2, sessionStart.plusMinutes(5))
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(60)),
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(120)),
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(180)),
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(240)),
+                new BiometricData(avgBpm, avgSpo2, sessionStart.plusSeconds(300))
         ));
 
         return baseLine;

@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -19,7 +19,7 @@ class DeviceTest {
     @Test
     void registerShouldNormalizeMacAddressAndResetConnectionState() {
         Device device = new Device();
-        device.updateStatus(true, LocalDateTime.of(2026, 3, 27, 9, 0));
+        device.updateStatus(true, Instant.parse("2026-03-27T09:00:00Z"));
 
         device.register(7L, "aa-bb-cc-dd-ee-ff", "  breathing  ");
 
@@ -48,10 +48,10 @@ class DeviceTest {
     void detectDisconnectShouldMarkDeviceAsDisconnectedWhenTimeoutExpires() {
         Device device = new Device();
         device.register(12L, "AA:BB:CC:DD:EE:11", null);
-        LocalDateTime lastPing = LocalDateTime.of(2026, 3, 27, 10, 0);
+        Instant lastPing = Instant.parse("2026-03-27T10:00:00Z");
         device.updateStatus(true, lastPing);
 
-        boolean disconnected = device.detectDisconnect(Duration.ofMinutes(5), lastPing.plusMinutes(5));
+        boolean disconnected = device.detectDisconnect(Duration.ofMinutes(5), lastPing.plusSeconds(300));
 
         assertTrue(disconnected);
         assertFalse(device.getIsConnected());
@@ -62,7 +62,7 @@ class DeviceTest {
     void recordTelemetryShouldUpdateSensorContactWhenReported() {
         Device device = new Device();
         device.register(13L, "AA:BB:CC:DD:EE:13", null);
-        LocalDateTime observedAt = LocalDateTime.of(2026, 4, 9, 18, 5);
+        Instant observedAt = Instant.parse("2026-04-09T18:05:00Z");
 
         device.recordTelemetry(observedAt, Boolean.FALSE);
 
@@ -76,7 +76,7 @@ class DeviceTest {
         Device device = new Device();
         device.register(15L, "AA:BB:CC:DD:EE:22", "grounding");
         setId(device, 99L);
-        LocalDateTime dispatchedAt = LocalDateTime.of(2026, 3, 27, 11, 30);
+        Instant dispatchedAt = Instant.parse("2026-03-27T11:30:00Z");
 
         DeviceCommand command = device.sendCommand(" START_BREATHING ", dispatchedAt);
 
@@ -92,10 +92,10 @@ class DeviceTest {
     void detectDisconnectShouldReturnFalseBeforeTimeoutExpires() {
         Device device = new Device();
         device.register(16L, "AA:BB:CC:DD:EE:33", null);
-        LocalDateTime lastPing = LocalDateTime.of(2026, 3, 27, 10, 0);
+        Instant lastPing = Instant.parse("2026-03-27T10:00:00Z");
         device.updateStatus(true, lastPing);
 
-        boolean disconnected = device.detectDisconnect(Duration.ofMinutes(5), lastPing.plusMinutes(4));
+        boolean disconnected = device.detectDisconnect(Duration.ofMinutes(5), lastPing.plusSeconds(240));
 
         assertFalse(disconnected);
         assertTrue(device.getIsConnected());

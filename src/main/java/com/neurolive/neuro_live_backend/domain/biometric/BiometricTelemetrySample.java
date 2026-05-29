@@ -9,7 +9,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "biometric_telemetry_samples")
@@ -38,7 +38,7 @@ public class BiometricTelemetrySample {
     private Boolean sensorContact;
 
     @Column(name = "observed_at", nullable = false, updatable = false)
-    private LocalDateTime observedAt;
+    private Instant observedAt;
 
     @Column(name = "prediction_state", length = 30, updatable = false)
     private String predictionState;

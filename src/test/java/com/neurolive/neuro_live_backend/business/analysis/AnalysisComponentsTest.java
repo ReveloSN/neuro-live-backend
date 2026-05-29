@@ -10,7 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,15 +29,15 @@ class AnalysisComponentsTest {
         analysisProperties.setBaselineWindowMinutes(5);
         BaselineCalculator baselineCalculator = new BaselineCalculator(analysisProperties);
         BaseLine baseLine = new BaseLine(500L);
-        LocalDateTime start = LocalDateTime.of(2026, 4, 3, 8, 0);
+        Instant start = Instant.parse("2026-04-03T08:00:00Z");
 
         baselineCalculator.calculate(baseLine, List.of(
                 new BiometricData(80.0f, 98.0f, start),
-                new BiometricData(82.0f, 98.0f, start.plusMinutes(1)),
-                new BiometricData(84.0f, 97.0f, start.plusMinutes(2)),
-                new BiometricData(86.0f, 98.0f, start.plusMinutes(3)),
-                new BiometricData(88.0f, 99.0f, start.plusMinutes(4)),
-                new BiometricData(90.0f, 99.0f, start.plusMinutes(5))
+                new BiometricData(82.0f, 98.0f, start.plusSeconds(60)),
+                new BiometricData(84.0f, 97.0f, start.plusSeconds(120)),
+                new BiometricData(86.0f, 98.0f, start.plusSeconds(180)),
+                new BiometricData(88.0f, 99.0f, start.plusSeconds(240)),
+                new BiometricData(90.0f, 99.0f, start.plusSeconds(300))
         ));
 
         assertTrue(baseLine.isReady());
@@ -64,12 +66,12 @@ class AnalysisComponentsTest {
     void shouldDetectEscalatedKeystrokePatternThroughTrie() {
         AnalysisProperties analysisProperties = new AnalysisProperties();
         TriePatternAnalyzer triePatternAnalyzer = new TriePatternAnalyzer(analysisProperties);
-        LocalDateTime start = LocalDateTime.of(2026, 4, 3, 9, 0);
+        Instant start = Instant.parse("2026-04-03T09:00:00Z");
 
         TriePatternAnalyzer.PatternAnalysisResult result = triePatternAnalyzer.analyze(List.of(
-                KeystrokeDynamics.capture(40L, "session-a", 140.0f, 160.0f, 3, 0.30f, start),
-                KeystrokeDynamics.capture(40L, "session-a", 220.0f, 160.0f, 1, 0.10f, start.plusSeconds(5)),
-                KeystrokeDynamics.capture(40L, "session-a", 150.0f, 300.0f, 1, 0.10f, start.plusSeconds(10))
+                KeystrokeDynamics.capture(40L, "session-a", 140.0f, 160.0f, 3, 0.30f, LocalDateTime.ofInstant(start, ZoneOffset.UTC)),
+                KeystrokeDynamics.capture(40L, "session-a", 220.0f, 160.0f, 1, 0.10f, LocalDateTime.ofInstant(start.plusSeconds(5), ZoneOffset.UTC)),
+                KeystrokeDynamics.capture(40L, "session-a", 150.0f, 300.0f, 1, 0.10f, LocalDateTime.ofInstant(start.plusSeconds(10), ZoneOffset.UTC))
         ));
 
         assertEquals(StateEnum.ACTIVE_CRISIS, result.inferredState());

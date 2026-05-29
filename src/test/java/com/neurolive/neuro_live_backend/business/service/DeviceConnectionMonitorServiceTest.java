@@ -16,7 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -40,7 +40,7 @@ class DeviceConnectionMonitorServiceTest {
 
     @Test
     void shouldKeepDeviceConnectedWhenHeartbeatIsRecent() {
-        LocalDateTime lastHeartbeat = LocalDateTime.of(2026, 4, 2, 11, 0);
+        Instant lastHeartbeat = Instant.parse("2026-04-02T11:00:00Z");
         Device device = buildConnectedDevice(91L, "AA:BB:CC:DD:EE:91", lastHeartbeat);
         RecordingObserver observer = new RecordingObserver();
         DeviceConnectionMonitorService monitorService = buildMonitorService(device, observer, 5L);
@@ -54,7 +54,7 @@ class DeviceConnectionMonitorServiceTest {
 
     @Test
     void shouldMarkDeviceDisconnectedWhenHeartbeatIsStale() {
-        LocalDateTime lastHeartbeat = LocalDateTime.of(2026, 4, 2, 11, 5);
+        Instant lastHeartbeat = Instant.parse("2026-04-02T11:05:00Z");
         Device device = buildConnectedDevice(92L, "AA:BB:CC:DD:EE:92", lastHeartbeat);
         RecordingObserver observer = new RecordingObserver();
         DeviceConnectionMonitorService monitorService = buildMonitorService(device, observer, 5L);
@@ -75,7 +75,7 @@ class DeviceConnectionMonitorServiceTest {
 
     @Test
     void shouldNotEmitDuplicateDisconnectAlertsOnRepeatedScans() {
-        LocalDateTime lastHeartbeat = LocalDateTime.of(2026, 4, 2, 11, 10);
+        Instant lastHeartbeat = Instant.parse("2026-04-02T11:10:00Z");
         Device device = buildConnectedDevice(93L, "AA:BB:CC:DD:EE:93", lastHeartbeat);
         RecordingObserver observer = new RecordingObserver();
         DeviceConnectionMonitorService monitorService = buildMonitorService(device, observer, 5L);
@@ -88,7 +88,7 @@ class DeviceConnectionMonitorServiceTest {
 
     @Test
     void shouldAllowReconnectionThroughLaterTelemetryUpdates() {
-        LocalDateTime lastHeartbeat = LocalDateTime.of(2026, 4, 2, 11, 15);
+        Instant lastHeartbeat = Instant.parse("2026-04-02T11:15:00Z");
         Device device = buildConnectedDevice(94L, "AA:BB:CC:DD:EE:94", lastHeartbeat);
         RecordingObserver observer = new RecordingObserver();
         DeviceConnectionMonitorService monitorService = buildMonitorService(device, observer, 5L);
@@ -105,7 +105,7 @@ class DeviceConnectionMonitorServiceTest {
 
     @Test
     void shouldRespectConfiguredTimeoutValues() {
-        LocalDateTime lastHeartbeat = LocalDateTime.of(2026, 4, 2, 11, 20);
+        Instant lastHeartbeat = Instant.parse("2026-04-02T11:20:00Z");
         Device device = buildConnectedDevice(95L, "AA:BB:CC:DD:EE:95", lastHeartbeat);
         RecordingObserver observer = new RecordingObserver();
         DeviceConnectionMonitorService monitorService = buildMonitorService(device, observer, 10L);
@@ -120,7 +120,7 @@ class DeviceConnectionMonitorServiceTest {
 
     @Test
     void shouldUseGracePeriodsWhenTheyProduceALongerTimeout() {
-        LocalDateTime lastHeartbeat = LocalDateTime.of(2026, 4, 2, 11, 25);
+        Instant lastHeartbeat = Instant.parse("2026-04-02T11:25:00Z");
         Device device = buildConnectedDevice(96L, "AA:BB:CC:DD:EE:96", lastHeartbeat);
         RecordingObserver observer = new RecordingObserver();
         DeviceConnectionMonitorService monitorService = buildMonitorService(device, observer, 5L, 4L, 2L);
@@ -143,7 +143,7 @@ class DeviceConnectionMonitorServiceTest {
 
     @Test
     void shouldNotEmitObserverUpdateWhenDeviceStaysConnected() {
-        LocalDateTime lastHeartbeat = LocalDateTime.of(2026, 4, 2, 12, 0);
+        Instant lastHeartbeat = Instant.parse("2026-04-02T12:00:00Z");
         Device device = buildConnectedDevice(98L, "AA:BB:CC:DD:EE:98", lastHeartbeat);
         RecordingObserver observer = new RecordingObserver();
         DeviceConnectionMonitorService monitorService = buildMonitorService(device, observer, 60L);
@@ -198,9 +198,9 @@ class DeviceConnectionMonitorServiceTest {
                                                               long timeoutSeconds,
                                                               long expectedIntervalSeconds,
                                                               long gracePeriods) {
-        when(deviceService.detectDisconnect(anyLong(), any(LocalDateTime.class))).thenAnswer(invocation -> {
+        when(deviceService.detectDisconnect(anyLong(), any(Instant.class))).thenAnswer(invocation -> {
             long configuredTimeout = invocation.getArgument(0);
-            LocalDateTime referenceTime = invocation.getArgument(1);
+            Instant referenceTime = invocation.getArgument(1);
             return device.detectDisconnect(Duration.ofSeconds(configuredTimeout), referenceTime)
                     ? List.of(device)
                     : List.of();
@@ -228,7 +228,7 @@ class DeviceConnectionMonitorServiceTest {
         );
     }
 
-    private Device buildConnectedDevice(Long patientId, String macAddress, LocalDateTime lastHeartbeat) {
+    private Device buildConnectedDevice(Long patientId, String macAddress, Instant lastHeartbeat) {
         Device device = new Device();
         device.register(patientId, macAddress, null);
         device.updateStatus(true, lastHeartbeat);

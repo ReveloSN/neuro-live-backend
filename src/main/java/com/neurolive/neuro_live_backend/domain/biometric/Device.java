@@ -17,7 +17,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
+
 import java.util.Base64;
 import java.util.HexFormat;
 
@@ -52,10 +53,10 @@ public class Device {
     private Boolean isConnected = false;
 
     @Column(name = "last_connection")
-    private LocalDateTime lastConnection;
+    private Instant lastConnection;
 
     @Column(name = "linked_at", updatable = false)
-    private LocalDateTime linkedAt;
+    private Instant linkedAt;
 
     @Column(name = "sensor_contact")
     private Boolean sensorContact = true;
@@ -81,7 +82,7 @@ public class Device {
         this.fallBackConfig = normalizeFallbackConfig(fallBackConfig);
         this.isConnected = false;
         this.lastConnection = null;
-        this.linkedAt = LocalDateTime.now();
+        this.linkedAt = Instant.now();
         this.sensorContact = true;
         assignDeviceToken(rawToken == null || rawToken.isBlank() ? generateToken() : rawToken);
     }
@@ -110,7 +111,7 @@ public class Device {
     }
 
     // Marca el dispositivo como desconectado cuando supera el tiempo maximo sin muestras.
-    public boolean detectDisconnect(Duration timeout, LocalDateTime referenceTime) {
+    public boolean detectDisconnect(Duration timeout, Instant referenceTime) {
         if (timeout == null || timeout.isZero() || timeout.isNegative()) {
             throw new IllegalArgumentException("Timeout must be greater than zero");
         }
@@ -129,7 +130,7 @@ public class Device {
     }
 
     // Construye el comando que despues se publica al actuador vinculado.
-    public DeviceCommand sendCommand(String command, LocalDateTime dispatchedAt) {
+    public DeviceCommand sendCommand(String command, Instant dispatchedAt) {
         if (id == null) {
             throw new IllegalStateException("Device must be persisted before sending commands");
         }
@@ -154,12 +155,12 @@ public class Device {
     }
 
     // Actualiza solo la conectividad cuando el cambio no viene con detalles del sensor.
-    public void updateStatus(boolean connected, LocalDateTime statusTime) {
+    public void updateStatus(boolean connected, Instant statusTime) {
         applyStatus(connected, null, statusTime);
     }
 
     // Registra una nueva muestra y conserva el ultimo estado de contacto del sensor si se informa.
-    public void recordTelemetry(LocalDateTime statusTime, Boolean sensorContact) {
+    public void recordTelemetry(Instant statusTime, Boolean sensorContact) {
         applyStatus(true, sensorContact, statusTime);
     }
 
@@ -168,7 +169,7 @@ public class Device {
         return Boolean.FALSE.equals(sensorContact);
     }
 
-    private void applyStatus(boolean connected, Boolean sensorContact, LocalDateTime statusTime) {
+    private void applyStatus(boolean connected, Boolean sensorContact, Instant statusTime) {
         if (statusTime == null) {
             throw new IllegalArgumentException("Status time is required");
         }

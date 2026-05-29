@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -105,19 +106,19 @@ public class DeviceService {
         return deviceRepository.findAllByPatientId(patientId);
     }
 
-    public Device updateStatus(Long deviceId, boolean connected, LocalDateTime statusTime) {
+    public Device updateStatus(Long deviceId, boolean connected, Instant statusTime) {
         Device device = getDevice(deviceId);
         device.updateStatus(connected, statusTime);
         return deviceRepository.save(device);
     }
 
     // Mantiene compatibilidad con el flujo anterior cuando la telemetria no reporta sensorContact.
-    public Device registerTelemetry(String macAddress, LocalDateTime telemetryTime) {
+    public Device registerTelemetry(String macAddress, Instant telemetryTime) {
         return registerTelemetry(macAddress, telemetryTime, null);
     }
 
     // Marca presencia de telemetria y conserva si el sensor reporto contacto valido o no.
-    public Device registerTelemetry(String macAddress, LocalDateTime telemetryTime, Boolean sensorContact) {
+    public Device registerTelemetry(String macAddress, Instant telemetryTime, Boolean sensorContact) {
         Device device = findByMacAddress(macAddress);
         device.recordTelemetry(telemetryTime, sensorContact);
         return deviceRepository.save(device);
@@ -137,7 +138,7 @@ public class DeviceService {
     }
 
     // Revisa los dispositivos conectados y devuelve solo los que realmente cruzaron el timeout.
-    public List<Device> detectDisconnect(Long timeoutSeconds, LocalDateTime referenceTime) {
+    public List<Device> detectDisconnect(Long timeoutSeconds, Instant referenceTime) {
         if (timeoutSeconds == null || timeoutSeconds <= 0) {
             throw new IllegalArgumentException("Timeout must be greater than zero");
         }
@@ -153,7 +154,7 @@ public class DeviceService {
                 .toList();
     }
 
-    public DeviceCommand sendCommand(Long deviceId, String command, LocalDateTime dispatchedAt) {
+    public DeviceCommand sendCommand(Long deviceId, String command, Instant dispatchedAt) {
         Device device = getDevice(deviceId);
         DeviceCommand deviceCommand = device.sendCommand(command, dispatchedAt);
         deviceCommandPublisher.publish(deviceCommand);

@@ -2,7 +2,7 @@ package com.neurolive.neuro_live_backend.presentation.dto;
 
 import com.neurolive.neuro_live_backend.business.service.TelemetryIngestionResult;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record BiometricIngestionResponseDTO(
         Long sampleId,
@@ -11,7 +11,7 @@ public record BiometricIngestionResponseDTO(
         String emotionalState,
         boolean crisisDetected,
         String interventionType,
-        LocalDateTime observedAt
+        Instant observedAt
 ) {
 
     public static BiometricIngestionResponseDTO from(TelemetryIngestionResult result) {

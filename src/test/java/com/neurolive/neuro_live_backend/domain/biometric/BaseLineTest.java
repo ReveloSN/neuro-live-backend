@@ -2,7 +2,7 @@ package com.neurolive.neuro_live_backend.domain.biometric;
 
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -18,33 +18,33 @@ class BaseLineTest {
     @Test
     void shouldCalculateBaselineWhenEnoughBiometricSamplesExist() {
         BaseLine baseLine = new BaseLine(15L);
-        LocalDateTime sessionStart = LocalDateTime.of(2026, 3, 27, 8, 0);
+        Instant sessionStart = Instant.parse("2026-03-27T08:00:00Z");
 
         BaseLine calculatedBaseLine = baseLine.calculate(List.of(
                 new BiometricData(80.0f, 97.0f, sessionStart),
-                new BiometricData(82.0f, 98.0f, sessionStart.plusMinutes(1)),
-                new BiometricData(84.0f, 97.0f, sessionStart.plusMinutes(2)),
-                new BiometricData(86.0f, 99.0f, sessionStart.plusMinutes(3)),
-                new BiometricData(88.0f, 98.0f, sessionStart.plusMinutes(4)),
-                new BiometricData(90.0f, 99.0f, sessionStart.plusMinutes(5))
+                new BiometricData(82.0f, 98.0f, sessionStart.plusSeconds(60)),
+                new BiometricData(84.0f, 97.0f, sessionStart.plusSeconds(120)),
+                new BiometricData(86.0f, 99.0f, sessionStart.plusSeconds(180)),
+                new BiometricData(88.0f, 98.0f, sessionStart.plusSeconds(240)),
+                new BiometricData(90.0f, 99.0f, sessionStart.plusSeconds(300))
         ));
 
         assertSame(baseLine, calculatedBaseLine);
         assertTrue(baseLine.isReady());
         assertEquals(85.0f, baseLine.getAvgBpm(), 0.0001f);
         assertEquals(98.0f, baseLine.getAvgSpo2(), 0.0001f);
-        assertEquals(sessionStart.plusMinutes(5), baseLine.getCalculatedAt());
+        assertEquals(sessionStart.plusSeconds(300), baseLine.getCalculatedAt());
     }
 
     @Test
     void shouldNotMarkBaselineAsReadyWhenThereIsInsufficientData() {
         BaseLine baseLine = new BaseLine(17L);
-        LocalDateTime sessionStart = LocalDateTime.of(2026, 3, 27, 8, 0);
+        Instant sessionStart = Instant.parse("2026-03-27T08:00:00Z");
 
         baseLine.calculate(List.of(
                 new BiometricData(81.0f, 98.0f, sessionStart),
-                new BiometricData(82.0f, 98.0f, sessionStart.plusMinutes(2)),
-                new BiometricData(83.0f, 99.0f, sessionStart.plusMinutes(4))
+                new BiometricData(82.0f, 98.0f, sessionStart.plusSeconds(120)),
+                new BiometricData(83.0f, 99.0f, sessionStart.plusSeconds(240))
         ));
 
         assertFalse(baseLine.isReady());
@@ -69,11 +69,11 @@ class BaseLineTest {
 
         IllegalArgumentException bpmException = assertThrows(
                 IllegalArgumentException.class,
-                () -> baseLine.applyCalculation(-1.0f, 98.0f, LocalDateTime.now())
+                () -> baseLine.applyCalculation(-1.0f, 98.0f, Instant.now())
         );
         IllegalArgumentException spo2Exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> baseLine.applyCalculation(82.0f, -1.0f, LocalDateTime.now())
+                () -> baseLine.applyCalculation(82.0f, -1.0f, Instant.now())
         );
 
         assertEquals("Average BPM must be a finite non-negative value", bpmException.getMessage());
@@ -83,18 +83,18 @@ class BaseLineTest {
     @Test
     void shouldSetCalculatedAtWhenCalculationSucceeds() {
         BaseLine baseLine = new BaseLine(25L);
-        LocalDateTime sessionStart = LocalDateTime.of(2026, 3, 27, 9, 30);
+        Instant sessionStart = Instant.parse("2026-03-27T09:30:00Z");
 
         baseLine.calculate(List.of(
                 new BiometricData(70.0f, 97.0f, sessionStart),
-                new BiometricData(71.0f, 97.0f, sessionStart.plusMinutes(1)),
-                new BiometricData(72.0f, 98.0f, sessionStart.plusMinutes(2)),
-                new BiometricData(73.0f, 98.0f, sessionStart.plusMinutes(3)),
-                new BiometricData(74.0f, 98.0f, sessionStart.plusMinutes(4)),
-                new BiometricData(75.0f, 99.0f, sessionStart.plusMinutes(5))
+                new BiometricData(71.0f, 97.0f, sessionStart.plusSeconds(60)),
+                new BiometricData(72.0f, 98.0f, sessionStart.plusSeconds(120)),
+                new BiometricData(73.0f, 98.0f, sessionStart.plusSeconds(180)),
+                new BiometricData(74.0f, 98.0f, sessionStart.plusSeconds(240)),
+                new BiometricData(75.0f, 99.0f, sessionStart.plusSeconds(300))
         ));
 
-        assertEquals(sessionStart.plusMinutes(5), baseLine.getCalculatedAt());
+        assertEquals(sessionStart.plusSeconds(300), baseLine.getCalculatedAt());
     }
 
     @Test
@@ -115,11 +115,11 @@ class BaseLineTest {
     @Test
     void shouldSupportStructuredWeightExtensionPointWithoutChangingCrisisLogic() {
         BaseLine baseLine = new BaseLine(27L);
-        LocalDateTime sessionStart = LocalDateTime.of(2026, 3, 27, 11, 0);
+        Instant sessionStart = Instant.parse("2026-03-27T11:00:00Z");
 
         baseLine.calculate(List.of(
                 new BiometricData(60.0f, 96.0f, sessionStart),
-                new BiometricData(100.0f, 100.0f, sessionStart.plusMinutes(5))
+                new BiometricData(100.0f, 100.0f, sessionStart.plusSeconds(300))
         ), sample -> sample.bpm() >= 100.0f ? 3.0d : 1.0d);
 
         assertTrue(baseLine.isReady());

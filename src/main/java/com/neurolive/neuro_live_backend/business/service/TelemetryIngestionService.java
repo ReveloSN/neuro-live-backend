@@ -17,6 +17,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -190,7 +191,7 @@ public class TelemetryIngestionService {
 
     // Notifica al cuidador solo cuando cambia la conectividad o el contacto del sensor.
     private void publishDeviceConnectivityUpdateIfNeeded(Long patientId,
-                                                         LocalDateTime observedAt,
+                                                         Instant observedAt,
                                                          boolean wasConnected,
                                                          Boolean previousSensorContact,
                                                          Device updatedDevice) {
@@ -236,8 +237,8 @@ public class TelemetryIngestionService {
     }
 
     private List<BiometricData> loadPatientTelemetry(Long patientId) {
-        LocalDateTime windowStart = LocalDateTime.now().minus(analysisProperties.telemetryWindow());
-        LocalDateTime windowEnd = LocalDateTime.now();
+        Instant windowStart = Instant.now().minus(analysisProperties.telemetryWindow());
+        Instant windowEnd = Instant.now();
         return biometricTelemetrySampleRepository
                 .findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(patientId, windowStart, windowEnd)
                 .stream()
@@ -276,7 +277,7 @@ public class TelemetryIngestionService {
             deviceService.sendCommand(
                     updatedDevice.getId(),
                     buildCommand(crisisMediationResult.interventionProtocol()),
-                    LocalDateTime.now()
+                    Instant.now()
             );
         } catch (RuntimeException exception) {
             LOGGER.warn(
@@ -334,7 +335,7 @@ public class TelemetryIngestionService {
         return value;
     }
 
-    private LocalDateTime requireObservedAt(LocalDateTime observedAt) {
+    private Instant requireObservedAt(Instant observedAt) {
         if (observedAt == null) {
             throw new IllegalArgumentException("Telemetry observed time is required");
         }

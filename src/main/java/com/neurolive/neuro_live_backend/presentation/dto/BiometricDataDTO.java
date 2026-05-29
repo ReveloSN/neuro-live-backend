@@ -4,14 +4,14 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record BiometricDataDTO(
         @NotNull @Positive Long patientId,
         @NotBlank String deviceMac,
         @NotNull @Positive Float bpm,
         @NotNull @Positive Float spo2,
-        @NotNull LocalDateTime observedAt,
+        @NotNull Instant observedAt,
         Boolean sensorContact,
         String predictionState,
         Float predictionConfidence,

@@ -2,7 +2,7 @@ package com.neurolive.neuro_live_backend.presentation.dto;
 
 import com.neurolive.neuro_live_backend.business.patterns.PatientStateUpdate;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record PatientStateMessageDTO(
         Long patientId,
@@ -10,7 +10,7 @@ public record PatientStateMessageDTO(
         String label,
         boolean crisisDetected,
         boolean interventionPrepared,
-        LocalDateTime observedAt,
+        Instant observedAt,
         Boolean deviceConnected,
         Boolean sensorContact,
         boolean disconnectAlert,

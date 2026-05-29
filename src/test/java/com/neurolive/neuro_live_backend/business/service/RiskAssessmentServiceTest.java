@@ -13,7 +13,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -51,7 +53,7 @@ class RiskAssessmentServiceTest {
         when(kdTreeClassifier.classify(any(CrisisFeatureVector.class)))
                 .thenReturn(new KDTreeClassifier.ClassificationResult(StateEnum.NORMAL, 0f, null));
 
-        BiometricData biometricData = new BiometricData(80f, 98f, LocalDateTime.now());
+        BiometricData biometricData = new BiometricData(80f, 98f, Instant.now());
         RiskAssessmentService.AssessmentSnapshot snapshot =
                 riskAssessmentService.assess(1L, biometricData, null);
 
@@ -67,7 +69,7 @@ class RiskAssessmentServiceTest {
         when(kdTreeClassifier.classify(any(CrisisFeatureVector.class)))
                 .thenReturn(new KDTreeClassifier.ClassificationResult(StateEnum.ACTIVE_CRISIS, 0.1f, "profile-B"));
 
-        BiometricData biometricData = new BiometricData(110f, 97f, LocalDateTime.now());
+        BiometricData biometricData = new BiometricData(110f, 97f, Instant.now());
         RiskAssessmentService.AssessmentSnapshot snapshot =
                 riskAssessmentService.assess(2L, biometricData, null);
 
@@ -78,14 +80,14 @@ class RiskAssessmentServiceTest {
     @Test
     void assess_shouldUseActiveCrisisWhenKeystrokeStateIsHighest() {
         // dwell >= 260 → analyzePattern() returns ACTIVE_CRISIS
-        KeystrokeDynamics ks = KeystrokeDynamics.capture(3L, "s1", 270f, 80f, 1, 0.05f, LocalDateTime.now());
+        KeystrokeDynamics ks = KeystrokeDynamics.capture(3L, "s1", 270f, 80f, 1, 0.05f, LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC));
         when(keystrokeDynamicsService.findRecentForUser(eq(3L), eq(8))).thenReturn(List.of(ks));
         when(triePatternAnalyzer.analyze(any()))
                 .thenReturn(new TriePatternAnalyzer.PatternAnalysisResult(StateEnum.NORMAL, null, 0));
         when(kdTreeClassifier.classify(any(CrisisFeatureVector.class)))
                 .thenReturn(new KDTreeClassifier.ClassificationResult(StateEnum.NORMAL, 0f, null));
 
-        BiometricData biometricData = new BiometricData(85f, 98f, LocalDateTime.now());
+        BiometricData biometricData = new BiometricData(85f, 98f, Instant.now());
         RiskAssessmentService.AssessmentSnapshot snapshot =
                 riskAssessmentService.assess(3L, biometricData, null);
 
@@ -95,7 +97,7 @@ class RiskAssessmentServiceTest {
     @Test
     void assess_shouldUseBpmDeltaAndSpo2DropFromBaselineForClassification() {
         BaseLine baseLine = new BaseLine(4L);
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
         baseLine.calculate(List.of(
                 new BiometricData(80f, 98f, now),
                 new BiometricData(80f, 98f, now.plusSeconds(1)),
@@ -111,7 +113,7 @@ class RiskAssessmentServiceTest {
         when(kdTreeClassifier.classify(any(CrisisFeatureVector.class)))
                 .thenReturn(new KDTreeClassifier.ClassificationResult(StateEnum.RISK_ELEVATED, 0.3f, "elevated-profile"));
 
-        BiometricData elevated = new BiometricData(105f, 96f, LocalDateTime.now());
+        BiometricData elevated = new BiometricData(105f, 96f, Instant.now());
         RiskAssessmentService.AssessmentSnapshot snapshot =
                 riskAssessmentService.assess(4L, elevated, baseLine);
 
@@ -122,14 +124,14 @@ class RiskAssessmentServiceTest {
     @Test
     void assess_shouldReturnRiskElevatedWhenKeystrokeDwellIsModeratelyHigh() {
         // dwell=200 is between AT_RISK (180) and CRISIS (260) → RISK_ELEVATED
-        KeystrokeDynamics ks = KeystrokeDynamics.capture(5L, "s1", 200f, 100f, 0, 0.0f, LocalDateTime.now());
+        KeystrokeDynamics ks = KeystrokeDynamics.capture(5L, "s1", 200f, 100f, 0, 0.0f, LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC));
         when(keystrokeDynamicsService.findRecentForUser(eq(5L), eq(8))).thenReturn(List.of(ks));
         when(triePatternAnalyzer.analyze(any()))
                 .thenReturn(new TriePatternAnalyzer.PatternAnalysisResult(StateEnum.NORMAL, null, 0));
         when(kdTreeClassifier.classify(any(CrisisFeatureVector.class)))
                 .thenReturn(new KDTreeClassifier.ClassificationResult(StateEnum.NORMAL, 0f, null));
 
-        BiometricData biometricData = new BiometricData(80f, 98f, LocalDateTime.now());
+        BiometricData biometricData = new BiometricData(80f, 98f, Instant.now());
         RiskAssessmentService.AssessmentSnapshot snapshot =
                 riskAssessmentService.assess(5L, biometricData, null);
 
@@ -144,7 +146,7 @@ class RiskAssessmentServiceTest {
         when(kdTreeClassifier.classify(any(CrisisFeatureVector.class)))
                 .thenReturn(new KDTreeClassifier.ClassificationResult(StateEnum.NORMAL, 0f, null));
 
-        BiometricData biometricData = new BiometricData(72f, 99f, LocalDateTime.now());
+        BiometricData biometricData = new BiometricData(72f, 99f, Instant.now());
         RiskAssessmentService.AssessmentSnapshot snapshot =
                 riskAssessmentService.assess(6L, biometricData, null);
 
