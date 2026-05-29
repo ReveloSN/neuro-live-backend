@@ -233,7 +233,7 @@ En la fase de diseno, realizo una revision de referentes especializados en acces
 
 Asimismo, desarrollo el frontend mediante Next.js y TypeScript, integrando las vistas principales de la aplicacion y su comunicacion con los servicios del sistema. Tambien asumio la responsabilidad del componente de hardware e IoT, incluyendo la integracion fisica del microcontrolador ESP32 con el sensor biometrico MAX30102, el modulo de iluminacion RGB WS2812 y el reproductor de audio DFPlayer Mini. Esta labor incluyo la programacion del firmware cargado en el microcontrolador, desarrollado mediante Arduino IDE.
 
-### Santiago Nicolas Saavedra
+### Santiago Nicolas Revelo Saavedra
 
 **Rol:** Backend, infraestructura, inteligencia artificial y servidor WebSocket.
 
