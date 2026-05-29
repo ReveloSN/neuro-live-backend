@@ -13,6 +13,8 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,6 +27,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/internal")
 public class InternalController {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(InternalController.class);
 
     private final TelemetryIngestionService telemetryIngestionService;
     private final DeviceConnectionMonitorService deviceConnectionMonitorService;
@@ -48,6 +52,7 @@ public class InternalController {
             @RequestHeader(value = "X-Internal-Token", required = false) String token,
             @RequestBody Map<String, Object> body) {
         validateToken(token);
+        LOGGER.info("Internal telemetry received deviceId={}", body == null ? null : body.get("deviceId"));
         TelemetryPayload payload = mapToTelemetryPayload(body);
         telemetryIngestionService.ingest(payload);
         return ResponseEntity.ok().build();
@@ -130,8 +135,11 @@ public class InternalController {
     // Resuelve el paciente vinculado a partir del MAC del dispositivo.
     private Long resolvePatientId(String deviceMac) {
         try {
-            return deviceService.findByMacAddress(deviceMac).getPatientId();
+            Long patientId = deviceService.findByMacAddress(deviceMac).getPatientId();
+            LOGGER.info("Internal telemetry resolved patientId={} deviceId={}", patientId, deviceMac);
+            return patientId;
         } catch (Exception exception) {
+            LOGGER.warn("Internal telemetry rejected unknown deviceId={}", deviceMac);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown deviceId");
         }
     }
