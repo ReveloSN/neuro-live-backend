@@ -322,7 +322,7 @@ public class TelemetryIngestionService {
             return;
         }
 
-        crisisOutcomePersistenceService.closeActiveCrisisIfRecovered(
+        crisisOutcomePersistenceService.closeActiveCrisesIfRecovered(
                 patientId,
                 finalState,
                 LocalDateTime.ofInstant(observedAt, ZoneId.systemDefault())

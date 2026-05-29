@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -45,43 +46,50 @@ public class CrisisOutcomePersistenceService {
         return Optional.of(crisisEventRepository.save(crisisEvent));
     }
 
-    public Optional<CrisisEvent> closeActiveCrisisIfRecovered(Long patientId,
-                                                              StateEnum finalState,
-                                                              LocalDateTime observedAt) {
+    public List<CrisisEvent> closeActiveCrisesIfRecovered(Long patientId,
+                                                          StateEnum finalState,
+                                                          LocalDateTime observedAt) {
         Long validatedPatientId = validatePatientId(patientId);
         StateEnum validatedFinalState = validateRecoveredState(finalState);
         if (validatedFinalState == StateEnum.ACTIVE_CRISIS) {
-            return Optional.empty();
+            return List.of();
         }
 
-        Optional<CrisisEvent> activeCrisis = crisisEventRepository
-                .findFirstByPatientIdAndEndedAtIsNullOrderByStartedAtDesc(validatedPatientId);
-        if (activeCrisis.isEmpty()) {
+        List<CrisisEvent> activeCrises = crisisEventRepository
+                .findAllByPatientIdAndEndedAtIsNullOrderByStartedAtDesc(validatedPatientId);
+        if (activeCrises.isEmpty()) {
             LOGGER.debug(
                     "No active crisis to close patientId={} finalState={} observedAt={}",
                     validatedPatientId,
                     validatedFinalState,
                     observedAt
             );
-            return Optional.empty();
+            return List.of();
         }
 
-        CrisisEvent crisisEvent = activeCrisis.orElseThrow();
+        return activeCrises.stream()
+                .map(crisisEvent -> closeActiveCrisis(crisisEvent, validatedFinalState, observedAt))
+                .toList();
+    }
+
+    private CrisisEvent closeActiveCrisis(CrisisEvent crisisEvent,
+                                          StateEnum finalState,
+                                          LocalDateTime observedAt) {
         LocalDateTime endedAt = resolveSafeEndedAt(crisisEvent, observedAt);
         TypeEnum interventionType = resolveInterventionType(crisisEvent);
         LOGGER.info(
                 "Closing active crisis id={} patientId={} endedAt={} finalState={} interventionType={}",
                 crisisEvent.getId(),
-                validatedPatientId,
+                crisisEvent.getPatientId(),
                 endedAt,
-                validatedFinalState,
+                finalState,
                 interventionType
         );
 
-        crisisEvent.close(endedAt, validatedFinalState, interventionType);
+        crisisEvent.close(endedAt, finalState, interventionType);
         CrisisEvent savedEvent = crisisEventRepository.save(crisisEvent);
         clinicalInsightService.generatePostCrisisSummaryAsync(savedEvent.getId());
-        return Optional.of(savedEvent);
+        return savedEvent;
     }
 
     private CrisisEvent resolveTargetEvent(CrisisMediator.CrisisMediationResult crisisMediationResult) {

@@ -293,7 +293,7 @@ class TelemetryIngestionServiceTest {
         assertEquals(storedSample, result.storedSample());
         assertNull(result.crisisMediationResult());
         verify(crisisMediator, never()).mediate(any());
-        verify(crisisOutcomePersistenceService).closeActiveCrisisIfRecovered(
+        verify(crisisOutcomePersistenceService).closeActiveCrisesIfRecovered(
                 payload.patientId(),
                 StateEnum.NORMAL,
                 LocalDateTime.ofInstant(payload.observedAt(), ZoneId.systemDefault())
@@ -440,7 +440,7 @@ class TelemetryIngestionServiceTest {
         telemetryIngestionService.ingest(payload);
 
         verify(crisisOutcomePersistenceService).persist(mediationResult);
-        verify(crisisOutcomePersistenceService, never()).closeActiveCrisisIfRecovered(any(), any(), any());
+        verify(crisisOutcomePersistenceService, never()).closeActiveCrisesIfRecovered(any(), any(), any());
     }
 
     @Test
@@ -466,7 +466,7 @@ class TelemetryIngestionServiceTest {
 
         telemetryIngestionService.ingest(payload);
 
-        verify(crisisOutcomePersistenceService).closeActiveCrisisIfRecovered(
+        verify(crisisOutcomePersistenceService).closeActiveCrisesIfRecovered(
                 payload.patientId(),
                 StateEnum.NORMAL,
                 LocalDateTime.ofInstant(payload.observedAt(), ZoneId.systemDefault())
