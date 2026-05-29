@@ -14,12 +14,14 @@ public class LoggingAccountRecoveryMailService implements AccountRecoveryMailSer
     private static final Logger LOGGER = LoggerFactory.getLogger(LoggingAccountRecoveryMailService.class);
 
     @Override
-    public void sendRecoveryToken(String email, String rawToken, LocalDateTime expiresAt) {
-        LOGGER.info("Account recovery token email={} token={} expiresAt={}", email, maskToken(rawToken), expiresAt);
+    public void sendRecoveryToken(String email, String code, LocalDateTime expiresAt) {
+        LOGGER.info("Account recovery token email={} code={} expiresAt={}", email, maskRecoveryCode(code), expiresAt);
     }
 
-    private static String maskToken(String token) {
-        if (token == null || token.length() < 6) return "****";
-        return token.substring(0, 4) + "****" + token.substring(token.length() - 2);
+    private static String maskRecoveryCode(String code) {
+        if (code == null || code.length() < 2) {
+            return "******";
+        }
+        return code.substring(0, 2) + "****";
     }
 }

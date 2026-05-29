@@ -70,31 +70,31 @@ public class AccountRecoveryService {
         accountRecoveryTokenRepository.findAllByUserIdAndConsumedAtIsNullAndExpiresAtAfter(user.getId(), now)
                 .forEach(token -> safeConsume(token, now));
 
-        String rawToken = generateToken();
+        String code = generateRecoveryCode();
         AccountRecoveryToken accountRecoveryToken = AccountRecoveryToken.issue(
                 user.getId(),
                 user.getEmail(),
-                hashToken(rawToken),
+                hashToken(code),
                 now.plus(tokenTtl)
         );
         accountRecoveryTokenRepository.save(accountRecoveryToken);
-        accountRecoveryMailService.sendRecoveryToken(user.getEmail(), rawToken, accountRecoveryToken.getExpiresAt());
+        accountRecoveryMailService.sendRecoveryToken(user.getEmail(), code, accountRecoveryToken.getExpiresAt());
 
         return genericRequestStatus();
     }
 
     @Transactional(readOnly = true)
-    public RecoveryStatus validateToken(String email, String rawToken) {
-        AccountRecoveryToken accountRecoveryToken = requireActiveToken(email, rawToken);
+    public RecoveryStatus validateToken(String email, String code) {
+        AccountRecoveryToken accountRecoveryToken = requireActiveToken(email, code);
         return new RecoveryStatus("Recovery token is valid", accountRecoveryToken.getExpiresAt(), true);
     }
 
-    public void resetPassword(String email, String rawToken, String newPassword) {
+    public void resetPassword(String email, String code, String newPassword) {
         if (newPassword == null || newPassword.isBlank()) {
             throw new IllegalArgumentException("New password is required");
         }
 
-        AccountRecoveryToken accountRecoveryToken = requireActiveToken(email, rawToken);
+        AccountRecoveryToken accountRecoveryToken = requireActiveToken(email, code);
         User user = userRepository.findByEmail(normalizeEmail(email))
                 .orElseThrow(() -> new IllegalArgumentException("Recovery token is invalid or expired"));
 
@@ -104,7 +104,11 @@ public class AccountRecoveryService {
         accountRecoveryTokenRepository.save(accountRecoveryToken);
     }
 
-    private AccountRecoveryToken requireActiveToken(String email, String rawToken) {
+    private AccountRecoveryToken requireActiveToken(String email, String code) {
+        if (code == null || !code.matches("^\\d{6}$")) {
+            throw new IllegalArgumentException("Recovery token is invalid or expired");
+        }
+
         LocalDateTime now = LocalDateTime.now();
         AccountRecoveryToken accountRecoveryToken = accountRecoveryTokenRepository
                 .findFirstByEmailAndConsumedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(
@@ -116,7 +120,7 @@ public class AccountRecoveryService {
         if (!accountRecoveryToken.isActive(now)) {
             throw new IllegalArgumentException("Recovery token is invalid or expired");
         }
-        if (!accountRecoveryToken.matches(hashToken(rawToken))) {
+        if (!accountRecoveryToken.matches(hashToken(code))) {
             throw new IllegalArgumentException("Recovery token is invalid or expired");
         }
 
@@ -137,10 +141,8 @@ public class AccountRecoveryService {
         return email.trim().toLowerCase(Locale.ROOT);
     }
 
-    private String generateToken() {
-        byte[] buffer = new byte[18];
-        secureRandom.nextBytes(buffer);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(buffer);
+    private String generateRecoveryCode() {
+        return String.format("%06d", secureRandom.nextInt(1_000_000));
     }
 
     private String hashToken(String rawToken) {

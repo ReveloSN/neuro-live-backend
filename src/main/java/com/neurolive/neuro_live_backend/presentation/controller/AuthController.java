@@ -50,14 +50,14 @@ public class AuthController {
     public ResponseEntity<AccountRecoveryResponseDTO> validateAccountRecovery(
             @Valid @RequestBody AccountRecoveryValidationDTO request) {
         return ResponseEntity.ok(
-                AccountRecoveryResponseDTO.from(accountRecoveryService.validateToken(request.email(), request.token()))
+                AccountRecoveryResponseDTO.from(accountRecoveryService.validateToken(request.email(), request.code()))
         );
     }
 
     @PostMapping("/account-recovery/reset")
     public ResponseEntity<AccountRecoveryResponseDTO> resetPassword(
             @Valid @RequestBody AccountRecoveryResetDTO request) {
-        accountRecoveryService.resetPassword(request.email(), request.token(), request.newPassword());
+        accountRecoveryService.resetPassword(request.email(), request.code(), request.newPassword());
         return ResponseEntity.ok(new AccountRecoveryResponseDTO("Password updated successfully", null, true));
     }
 }
