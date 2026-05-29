@@ -25,7 +25,8 @@ class UserLinkTest {
         String token = userLink.generateToken();
 
         assertNotNull(token);
-        assertEquals(20, token.length());
+        assertEquals(6, token.length());
+        assertTrue(token.matches("^[A-HJ-NP-Z2-9]{6}$"));
         assertEquals(StatusEnum.PENDING, userLink.getStatus());
         assertNotNull(userLink.getExpiresAt());
         assertTrue(userLink.validateToken(token));

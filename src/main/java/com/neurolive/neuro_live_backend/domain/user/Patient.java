@@ -11,9 +11,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Entity
 @Table(name = "patients")
@@ -21,6 +21,10 @@ import java.util.UUID;
 @NoArgsConstructor
 // Modela al paciente y sus reglas de consentimiento y vinculacion.
 public class Patient extends User {
+
+    private static final String LINK_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final int LINK_CODE_LENGTH = 6;
+    private static final SecureRandom LINK_CODE_RANDOM = new SecureRandom();
 
     @Column(name = "consent_given", nullable = false)
     private Boolean consentGiven = false;
@@ -49,11 +53,12 @@ public class Patient extends User {
     }
 
     public String generateLinkToken() {
-        return UUID.randomUUID()
-                .toString()
-                .replace("-", "")
-                .substring(0, 20)
-                .toUpperCase();
+        // Genera un codigo corto para vinculacion sin afectar tokens de seguridad.
+        StringBuilder code = new StringBuilder(LINK_CODE_LENGTH);
+        for (int index = 0; index < LINK_CODE_LENGTH; index++) {
+            code.append(LINK_CODE_ALPHABET.charAt(LINK_CODE_RANDOM.nextInt(LINK_CODE_ALPHABET.length())));
+        }
+        return code.toString();
     }
 
     public void linkDevice(Long devicePatientId) {

@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -71,11 +72,29 @@ class UserLinkServiceTest {
         UserLink issuedLink = userLinkService.issueToken("patient101@neurolive.test", "127.0.0.1");
 
         assertNotNull(issuedLink.getToken());
+        assertEquals(6, issuedLink.getToken().length());
+        assertTrue(issuedLink.getToken().matches("^[A-HJ-NP-Z2-9]{6}$"));
         assertEquals(StatusEnum.PENDING, issuedLink.getStatus());
         assertNotNull(issuedLink.getExpiresAt());
         assertFalse(previousPendingLink.validateToken());
         assertEquals(StatusEnum.REVOKED, previousPendingLink.getStatus());
         verify(auditLogService).record(101L, "GENERATE_LINK_TOKEN", 101L, "127.0.0.1");
+    }
+
+    @Test
+    void issueTokenShouldRetryWhenGeneratedCodeCollides() {
+        Patient patient = buildPatient(102L);
+
+        when(userRepository.findByEmail("patient102@neurolive.test")).thenReturn(Optional.of(patient));
+        when(userLinkRepository.findAllByPatient_IdAndStatusOrderByCreatedAtDesc(102L, StatusEnum.PENDING))
+                .thenReturn(List.of());
+        when(userLinkRepository.existsByToken(any(String.class))).thenReturn(true, false);
+        when(userLinkRepository.save(any(UserLink.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserLink issuedLink = userLinkService.issueToken("patient102@neurolive.test", "127.0.0.1");
+
+        assertTrue(issuedLink.getToken().matches("^[A-HJ-NP-Z2-9]{6}$"));
+        verify(userLinkRepository, times(2)).existsByToken(any(String.class));
     }
 
     @Test
@@ -118,6 +137,56 @@ class UserLinkServiceTest {
 
         assertEquals("Link token has expired", exception.getMessage());
         verify(userLinkRepository, never()).save(any(UserLink.class));
+    }
+
+    @Test
+    void redeemTokenShouldRejectAlreadyUsedToken() {
+        Patient patient = buildPatient(122L);
+        Caregiver caregiver = buildCaregiver(223L);
+        UserLink usedLink = new UserLink(patient);
+        String token = usedLink.generateToken(LocalDateTime.now().plusMinutes(10));
+        usedLink.activate(caregiver, LocalDateTime.now());
+
+        when(userRepository.findByEmail("caregiver223@neurolive.test")).thenReturn(Optional.of(caregiver));
+        when(userLinkRepository.findByToken(token)).thenReturn(Optional.of(usedLink));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> userLinkService.redeemToken("caregiver223@neurolive.test", token, "127.0.0.1")
+        );
+
+        assertEquals("Link token has already been used", exception.getMessage());
+        verify(userLinkRepository, never()).save(any(UserLink.class));
+    }
+
+    @Test
+    void redeemTokenShouldRejectInvalidShortCode() {
+        Doctor doctor = buildDoctor(334L);
+
+        when(userRepository.findByEmail("doctor334@neurolive.test")).thenReturn(Optional.of(doctor));
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> userLinkService.redeemToken("doctor334@neurolive.test", "O0I1AA", "127.0.0.1")
+        );
+
+        assertEquals("Link token must be 6 characters using the allowed alphabet", exception.getMessage());
+        verify(userLinkRepository, never()).findByToken(any(String.class));
+    }
+
+    @Test
+    void redeemTokenShouldRejectPatientRequester() {
+        Patient patient = buildPatient(123L);
+
+        when(userRepository.findByEmail("patient123@neurolive.test")).thenReturn(Optional.of(patient));
+
+        UnauthorizedAccessException exception = assertThrows(
+                UnauthorizedAccessException.class,
+                () -> userLinkService.redeemToken("patient123@neurolive.test", "7K4Q9P", "127.0.0.1")
+        );
+
+        assertEquals("Only caregivers and doctors can redeem link tokens", exception.getMessage());
+        verify(userLinkRepository, never()).findByToken(any(String.class));
     }
 
     @Test
