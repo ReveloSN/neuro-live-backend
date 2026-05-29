@@ -1,9 +1,225 @@
-# neuro-live-backend
+# NeuroLive Backend
 
-## Public API
+API REST de NeuroLive desarrollada con Java y Spring Boot. Gestiona usuarios, autenticacion, dispositivos ESP32, telemetria biometrica, deteccion de crisis, vinculos clinicos, historial de eventos y analisis clinico.
 
-- Production URL: `neurolive-backend.azurewebsites.net`
-- Health endpoint: `https://neurolive-backend.azurewebsites.net/health`
+## API publica
+
+* URL de produccion: https://neurolive-backend.azurewebsites.net
+* Health endpoint: https://neurolive-backend.azurewebsites.net/health
+
+## Descripcion
+
+El backend recibe datos biometricos enviados desde el servicio WebSocket en tiempo real, los procesa, los almacena en PostgreSQL y expone endpoints para que el frontend consulte el estado del paciente, dispositivos, crisis y analisis clinico.
+
+Flujo general:
+
+```text
+ESP32 / Simulador
+-> WebSocket Railway
+-> Backend Azure /internal/telemetry
+-> PostgreSQL
+-> Frontend Vercel
+```
+
+## Tecnologias utilizadas
+
+* Java 21
+* Spring Boot
+* Spring Security
+* JWT
+* PostgreSQL
+* Flyway
+* Maven
+* Azure App Service
+* JPA / Hibernate
+* API REST
+* Integracion con servicio WebSocket externo
+
+## Funcionalidades principales
+
+* Registro e inicio de sesion de usuarios.
+* Autenticacion mediante JWT.
+* Gestion de roles:
+
+  * Paciente
+  * Medico
+  * Cuidador
+  * Usuario personal
+* Vinculacion de cuentas mediante token.
+* Vinculacion de dispositivos ESP32 por direccion MAC.
+* Recepcion interna de telemetria biometrica.
+* Persistencia de BPM, SpO2 y contacto del sensor.
+* Consulta de ultima telemetria del paciente.
+* Deteccion de estados de riesgo o crisis.
+* Registro de eventos de crisis.
+* Cierre de crisis y almacenamiento de duracion.
+* Cuestionario SAM posterior a intervencion.
+* Exportacion de datos en CSV.
+* Auditoria de accesos clinicos.
+* Integracion con IA para analisis predictivo o clinico cuando esta configurada.
+
+## Endpoints principales
+
+### Salud
+
+```http
+GET /health
+```
+
+### Autenticacion
+
+```http
+POST /auth/register
+POST /auth/login
+```
+
+### Usuario
+
+```http
+GET /users/me
+PUT /users/me
+```
+
+### Dispositivos
+
+```http
+POST /devices/patients/{patientId}/link
+GET /devices/patients/{patientId}
+```
+
+### Telemetria
+
+```http
+POST /internal/telemetry
+GET /biometrics/patients/{patientId}/telemetry/latest
+```
+
+### Crisis
+
+```http
+GET /crises/patients/{patientId}
+GET /crises/{crisisId}
+POST /crises/{crisisId}/sam
+GET /crises/patients/{patientId}/export
+```
+
+### Vinculos
+
+```http
+GET /links/me
+PATCH /links/{linkId}/revoke
+```
+
+## Seguridad
+
+Los endpoints publicos son limitados. La mayoria de rutas requieren JWT:
+
+```text
+Authorization: Bearer <token>
+```
+
+Los endpoints internos usan token interno:
+
+```text
+X-Internal-Token: <internal-token>
+```
+
+No se deben subir tokens, contrasenas ni claves al repositorio.
+
+## Variables de entorno
+
+Variables requeridas en produccion:
+
+```env
+SPRING_DATASOURCE_URL=
+SPRING_DATASOURCE_USERNAME=
+SPRING_DATASOURCE_PASSWORD=
+JWT_SECRET=
+INTERNAL_TOKEN=
+APP_ALLOWED_ORIGINS=
+REALTIME_SERVICE_URL=
+GEMINI_API_KEY=
+GEMINI_MODEL=
+GEMINI_ENABLED=
+```
+
+## Ejecucion local
+
+Compilar y ejecutar tests:
+
+```bash
+./mvnw test
+```
+
+Generar JAR:
+
+```bash
+./mvnw -DskipTests package
+```
+
+Ejecutar localmente:
+
+```bash
+./mvnw spring-boot:run
+```
+
+En Windows:
+
+```powershell
+.\mvnw.cmd test
+.\mvnw.cmd -DskipTests package
+.\mvnw.cmd spring-boot:run
+```
+
+## Despliegue en Azure
+
+El backend se despliega como JAR en Azure App Service Java.
+
+Comando usado para despliegue:
+
+```powershell
+az webapp deploy `
+  --resource-group rg-neurolive `
+  --name neurolive-backend `
+  --src-path target/neuro-live-backend-0.0.1-SNAPSHOT.jar `
+  --type jar
+```
+
+Verificar salud despues del despliegue:
+
+```powershell
+curl.exe https://neurolive-backend.azurewebsites.net/health
+```
+
+## Base de datos
+
+El backend usa PostgreSQL y migraciones con Flyway. Las migraciones se encuentran en:
+
+```text
+src/main/resources/db/migration
+```
+
+No se deben modificar ni renombrar migraciones ya aplicadas en produccion.
+
+## Verificacion recomendada
+
+Antes de desplegar:
+
+```powershell
+.\mvnw.cmd test
+.\mvnw.cmd -DskipTests package
+git diff --check
+```
+
+Despues de desplegar:
+
+```powershell
+curl.exe https://neurolive-backend.azurewebsites.net/health
+```
+
+## Estado del despliegue
+
+El backend se encuentra desplegado en Azure App Service y conectado a PostgreSQL.
 
 ## Participacion del equipo
 
