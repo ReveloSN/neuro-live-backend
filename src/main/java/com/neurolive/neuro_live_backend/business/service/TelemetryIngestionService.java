@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -181,6 +182,8 @@ public class TelemetryIngestionService {
                         crisisEvent.getInterventionType()
                 ));
                 trySendInterventionCommand(updatedDevice, crisisMediationResult);
+            } else {
+                closeActiveCrisisIfRecovered(patientId, combinedState, biometricData.timestamp());
             }
         } else {
             LOGGER.debug(
@@ -188,6 +191,7 @@ public class TelemetryIngestionService {
                     patientId,
                     combinedState
             );
+            closeActiveCrisisIfRecovered(patientId, combinedState, biometricData.timestamp());
         }
 
         return new TelemetryIngestionResult(storedSample, updatedDevice, baseLine, crisisMediationResult);
@@ -310,6 +314,19 @@ public class TelemetryIngestionService {
                     exception.getMessage()
             );
         }
+    }
+
+    // Cierra una crisis abierta cuando la nueva telemetria ya no confirma ACTIVE_CRISIS.
+    private void closeActiveCrisisIfRecovered(Long patientId, StateEnum finalState, Instant observedAt) {
+        if (finalState == StateEnum.ACTIVE_CRISIS) {
+            return;
+        }
+
+        crisisOutcomePersistenceService.closeActiveCrisisIfRecovered(
+                patientId,
+                finalState,
+                LocalDateTime.ofInstant(observedAt, ZoneId.systemDefault())
+        );
     }
 
     // Mapea la prediccion externa al enum clinico actual.

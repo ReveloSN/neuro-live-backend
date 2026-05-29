@@ -29,6 +29,7 @@ import java.lang.reflect.Field;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -292,6 +293,11 @@ class TelemetryIngestionServiceTest {
         assertEquals(storedSample, result.storedSample());
         assertNull(result.crisisMediationResult());
         verify(crisisMediator, never()).mediate(any());
+        verify(crisisOutcomePersistenceService).closeActiveCrisisIfRecovered(
+                payload.patientId(),
+                StateEnum.NORMAL,
+                LocalDateTime.ofInstant(payload.observedAt(), ZoneId.systemDefault())
+        );
     }
 
     @Test
@@ -434,6 +440,38 @@ class TelemetryIngestionServiceTest {
         telemetryIngestionService.ingest(payload);
 
         verify(crisisOutcomePersistenceService).persist(mediationResult);
+        verify(crisisOutcomePersistenceService, never()).closeActiveCrisisIfRecovered(any(), any(), any());
+    }
+
+    @Test
+    void shouldCloseActiveCrisisWhenMediatedStateReturnsToNormal() {
+        TelemetryPayload payload = buildPayload(89L, "AA:BB:CC:DD:EE:50", 82.0f, 98.0f, Instant.parse("2026-04-02T10:30:00Z"));
+        Device device = buildDevice(89L, payload.deviceMac());
+        BaseLine baseLine = buildReadyBaseLine(89L, 80.0f, 98.0f);
+        BiometricTelemetrySample storedSample = BiometricTelemetrySample.from(payload.patientId(), payload.deviceMac(), toDomain(payload));
+        CrisisMediator.CrisisMediationResult mediationResult = CrisisMediator.CrisisMediationResult.withoutCrisis(
+                EmotionalState.from(StateEnum.NORMAL)
+        );
+
+        when(deviceService.findByMacAddress(payload.deviceMac())).thenReturn(device);
+        when(biometricTelemetrySampleRepository.save(any(BiometricTelemetrySample.class))).thenReturn(storedSample);
+        when(deviceService.registerTelemetry(payload.deviceMac(), payload.observedAt(), null)).thenReturn(device);
+        when(biometricTelemetrySampleRepository.findAllByPatientIdAndObservedAtBetweenOrderByObservedAtAsc(eq(payload.patientId()), any(Instant.class), any(Instant.class))).thenReturn(List.of(storedSample));
+        when(baseLineService.updateFromTelemetry(payload.patientId(), List.of(storedSample.toDomain()))).thenReturn(baseLine);
+        when(activationThresholdService.resolveForPatient(payload.patientId())).thenReturn(null);
+        when(riskAssessmentService.assess(payload.patientId(), toDomain(payload), baseLine)).thenReturn(
+                new RiskAssessmentService.AssessmentSnapshot(null, null, null, null, StateEnum.NORMAL, "stable", "stable")
+        );
+        when(crisisMediator.mediate(any())).thenReturn(mediationResult);
+
+        telemetryIngestionService.ingest(payload);
+
+        verify(crisisOutcomePersistenceService).closeActiveCrisisIfRecovered(
+                payload.patientId(),
+                StateEnum.NORMAL,
+                LocalDateTime.ofInstant(payload.observedAt(), ZoneId.systemDefault())
+        );
+        verify(crisisOutcomePersistenceService, never()).persist(any());
     }
 
     @Test
