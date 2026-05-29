@@ -31,5 +31,7 @@ public interface CrisisEventRepository extends JpaRepository<CrisisEvent, Long> 
 
     Optional<CrisisEvent> findFirstByPatientIdAndEndedAtIsNullOrderByStartedAtDesc(Long patientId);
 
+    List<CrisisEvent> findAllByPatientIdAndEndedAtIsNullOrderByStartedAtDesc(Long patientId);
+
     Page<CrisisEvent> findAllByStateNotNullOrderByStartedAtDesc(Pageable pageable);
 }

@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,6 +34,9 @@ class CrisisOutcomePersistenceServiceTest {
 
     @Mock
     private CrisisEventRepository crisisEventRepository;
+
+    @Mock
+    private ClinicalInsightService clinicalInsightService;
 
     @InjectMocks
     private CrisisOutcomePersistenceService crisisOutcomePersistenceService;
@@ -160,6 +164,166 @@ class CrisisOutcomePersistenceServiceTest {
 
         assertEquals(TypeEnum.LIGHT, result.getInterventionType());
         assertSame(existingProtocol, result.getInterventionProtocol());
+    }
+
+    @Test
+    void shouldCloseExistingOpenCrisisWhenPatientReturnsToNormal() {
+        CrisisEvent existingOpenEvent = CrisisEvent.open(
+                106L,
+                StateEnum.ACTIVE_CRISIS,
+                LocalDateTime.of(2026, 4, 2, 12, 0)
+        );
+        existingOpenEvent.attachInterventionProtocol(
+                InterventionProtocol.builder(TypeEnum.BREATHING)
+                        .breathingPattern(4, 6)
+                        .active()
+                        .build()
+        );
+        when(crisisEventRepository.findAllByPatientIdAndEndedAtIsNullOrderByStartedAtDesc(106L))
+                .thenReturn(List.of(existingOpenEvent));
+        when(crisisEventRepository.save(any(CrisisEvent.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        CrisisEvent closedEvent = crisisOutcomePersistenceService.closeActiveCrisesIfRecovered(
+                106L,
+                StateEnum.NORMAL,
+                LocalDateTime.of(2026, 4, 2, 12, 5)
+        ).getFirst();
+
+        assertFalse(closedEvent.isActive());
+        assertEquals(StateEnum.NORMAL, closedEvent.getState());
+        assertEquals(LocalDateTime.of(2026, 4, 2, 12, 5), closedEvent.getEndedAt());
+        assertEquals(TypeEnum.BREATHING, closedEvent.getInterventionType());
+        verify(clinicalInsightService).generatePostCrisisSummaryAsync(closedEvent.getId());
+    }
+
+    @Test
+    void shouldCloseExistingOpenCrisisWhenPatientDropsToRiskElevated() {
+        CrisisEvent existingOpenEvent = CrisisEvent.open(
+                107L,
+                StateEnum.ACTIVE_CRISIS,
+                LocalDateTime.of(2026, 4, 2, 12, 0)
+        );
+        existingOpenEvent.attachInterventionProtocol(
+                InterventionProtocol.builder(TypeEnum.LIGHT)
+                        .light("blue", 40)
+                        .active()
+                        .build()
+        );
+        when(crisisEventRepository.findAllByPatientIdAndEndedAtIsNullOrderByStartedAtDesc(107L))
+                .thenReturn(List.of(existingOpenEvent));
+        when(crisisEventRepository.save(any(CrisisEvent.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        CrisisEvent closedEvent = crisisOutcomePersistenceService.closeActiveCrisesIfRecovered(
+                107L,
+                StateEnum.RISK_ELEVATED,
+                LocalDateTime.of(2026, 4, 2, 12, 3)
+        ).getFirst();
+
+        assertFalse(closedEvent.isActive());
+        assertEquals(StateEnum.RISK_ELEVATED, closedEvent.getState());
+        assertNotNull(closedEvent.getEndedAt());
+        assertEquals(TypeEnum.LIGHT, closedEvent.getInterventionType());
+    }
+
+    @Test
+    void shouldNotCreateCrisisWhenRecoveredStateArrivesWithoutOpenCrisis() {
+        when(crisisEventRepository.findAllByPatientIdAndEndedAtIsNullOrderByStartedAtDesc(108L))
+                .thenReturn(List.of());
+
+        List<CrisisEvent> closedEvents = crisisOutcomePersistenceService.closeActiveCrisesIfRecovered(
+                108L,
+                StateEnum.NORMAL,
+                LocalDateTime.of(2026, 4, 2, 12, 5)
+        );
+
+        assertTrue(closedEvents.isEmpty());
+        verify(crisisEventRepository, never()).save(any());
+        verify(clinicalInsightService, never()).generatePostCrisisSummaryAsync(any());
+    }
+
+    @Test
+    void shouldNotCloseCrisisWhenStateRemainsActiveCrisis() {
+        List<CrisisEvent> closedEvents = crisisOutcomePersistenceService.closeActiveCrisesIfRecovered(
+                109L,
+                StateEnum.ACTIVE_CRISIS,
+                LocalDateTime.of(2026, 4, 2, 12, 5)
+        );
+
+        assertTrue(closedEvents.isEmpty());
+        verify(crisisEventRepository, never()).findAllByPatientIdAndEndedAtIsNullOrderByStartedAtDesc(any());
+        verify(crisisEventRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldUseCrisisStartWhenRecoveryTimestampIsBeforeStart() {
+        CrisisEvent existingOpenEvent = CrisisEvent.open(
+                110L,
+                StateEnum.ACTIVE_CRISIS,
+                LocalDateTime.of(2026, 4, 2, 12, 10)
+        );
+        existingOpenEvent.attachInterventionProtocol(
+                InterventionProtocol.builder(TypeEnum.BREATHING)
+                        .breathingPattern(4, 6)
+                        .active()
+                        .build()
+        );
+        when(crisisEventRepository.findAllByPatientIdAndEndedAtIsNullOrderByStartedAtDesc(110L))
+                .thenReturn(List.of(existingOpenEvent));
+        when(crisisEventRepository.save(any(CrisisEvent.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        CrisisEvent closedEvent = crisisOutcomePersistenceService.closeActiveCrisesIfRecovered(
+                110L,
+                StateEnum.NORMAL,
+                LocalDateTime.of(2026, 4, 2, 12, 5)
+        ).getFirst();
+
+        assertEquals(existingOpenEvent.getStartedAt(), closedEvent.getEndedAt());
+        assertFalse(closedEvent.calculateDuration().isNegative());
+    }
+
+    @Test
+    void shouldCloseEveryExistingOpenCrisisForRecoveredPatient() {
+        CrisisEvent newestOpenEvent = CrisisEvent.open(
+                111L,
+                StateEnum.ACTIVE_CRISIS,
+                LocalDateTime.of(2026, 4, 2, 12, 10)
+        );
+        newestOpenEvent.attachInterventionProtocol(
+                InterventionProtocol.builder(TypeEnum.BREATHING)
+                        .breathingPattern(4, 6)
+                        .active()
+                        .build()
+        );
+        CrisisEvent olderOpenEvent = CrisisEvent.open(
+                111L,
+                StateEnum.ACTIVE_CRISIS,
+                LocalDateTime.of(2026, 4, 2, 12, 0)
+        );
+        olderOpenEvent.attachInterventionProtocol(
+                InterventionProtocol.builder(TypeEnum.AUDIO)
+                        .audioTrack("calm.mp3", 30)
+                        .active()
+                        .build()
+        );
+        when(crisisEventRepository.findAllByPatientIdAndEndedAtIsNullOrderByStartedAtDesc(111L))
+                .thenReturn(List.of(newestOpenEvent, olderOpenEvent));
+        when(crisisEventRepository.save(any(CrisisEvent.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<CrisisEvent> closedEvents = crisisOutcomePersistenceService.closeActiveCrisesIfRecovered(
+                111L,
+                StateEnum.NORMAL,
+                LocalDateTime.of(2026, 4, 2, 12, 15)
+        );
+
+        assertEquals(2, closedEvents.size());
+        assertFalse(newestOpenEvent.isActive());
+        assertFalse(olderOpenEvent.isActive());
+        verify(crisisEventRepository, org.mockito.Mockito.times(2)).save(any(CrisisEvent.class));
+        verify(clinicalInsightService, org.mockito.Mockito.times(2)).generatePostCrisisSummaryAsync(any());
     }
 
     private CrisisMediator.CrisisMediationResult buildDetectedCrisisResult(Long patientId) {
